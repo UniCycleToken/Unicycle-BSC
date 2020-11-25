@@ -27,7 +27,7 @@ contract Auction is Context, Ownable {
 
     Staker[] public activeStakers;
     mapping(address => uint256) activeStakersIds;
-    
+
     uint256 public _totalStakedUnic;
     uint256 public _totalAuctionedETH;
     IUnicToken internal _unicToken;
@@ -44,12 +44,10 @@ contract Auction is Context, Ownable {
         return activeStakers[activeStakersIds[_msgSender()] - 1].stakes.length;
     }
 
-
     function getStakeInfo(uint256 stakeIndex) external view returns (uint256, uint256, uint256) {
         Stake memory stakeInfo = activeStakers[activeStakersIds[_msgSender()] - 1].stakes[stakeIndex];
         return (stakeInfo.unicStaked, stakeInfo.ethReward, stakeInfo.stakeEndTime);
     }
-
 
     function getAuctionInfo() external view onlyOwner returns (address, uint256) {
         return (address(_unicToken), _totalAuctionedETH);
@@ -63,7 +61,6 @@ contract Auction is Context, Ownable {
         participants.push(participant);
     }
 
-    // FOR STAKING
     function stake(uint256 amount, uint256 duration) external {
         // check for balance and allowance
         require(amount <= _unicToken.balanceOf(_msgSender()), "Insufficient balance");
@@ -71,7 +68,7 @@ contract Auction is Context, Ownable {
         // add to address aray for later ethReward payout
         uint256 id = activeStakersIds[_msgSender()];
         if (id == 0) {
-            activeStakers.push();    
+            activeStakers.push();
             id = activeStakers.length;
             activeStakersIds[_msgSender()] = id;
         }
@@ -84,7 +81,7 @@ contract Auction is Context, Ownable {
         staker.stakes.push(newStake);
         // modify storage
         _totalStakedUnic = _totalStakedUnic.add(amount);
-        // TODO: transfer 5% to LP stakers
+        // TODO: transfer 5% to LP stakers or do it in unlock function
         uint256 tokensForLp = amount.div(20);
         //transfer tokens for later burn
         _unicToken.transferFrom(_msgSender(), address(this), amount.sub(tokensForLp));
@@ -102,14 +99,10 @@ contract Auction is Context, Ownable {
         } else {
             delete currentStaker.stakes[stakeIndex];
         }
-        
-    //     Staker[] public activeStakers;
-    // mapping(address => uint256) activeStakersIds;
         if (currentStaker.stakes.length == 0) {
-            currentStaker = activeStakers[activeStakers.length -1];
+            currentStaker = activeStakers[activeStakers.length - 1];
             activeStakers.pop();
         }
-        // TODO: algorith for ETH payout
     }
 
     function unlockTokens() public {
