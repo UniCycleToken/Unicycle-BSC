@@ -25,6 +25,14 @@ contract Auction is Context, Ownable {
         Stake[] stakes;
     }
 
+    struct LPStaker {
+        address lpStakerAddress;
+        uint256 totalLPStaked;
+    }
+ 
+    LPStaker[] public lpStakers;
+    mapping(address => uint256) lpStakersIds;
+
     Staker[] public activeStakers;
     mapping(address => uint256) activeStakersIds;
 
@@ -38,6 +46,10 @@ contract Auction is Context, Ownable {
 
     constructor (address unicTokenAddress) public {
         _unicToken = IUnicToken(unicTokenAddress);
+    }
+
+    function getLPStakeInfo() external view returns (uint256) {
+        return lpStakers[lpStakersIds[_msgSender()] - 1].totalLPStaked;
     }
 
     function getNumOfStakes() external view returns (uint256) {
@@ -103,6 +115,18 @@ contract Auction is Context, Ownable {
             currentStaker = activeStakers[activeStakers.length - 1];
             activeStakers.pop();
         }
+    }
+
+    function LPStake(address token, uint256 amount) external {
+        require(_unicToken.getIsBlackListed(token), 'Token not added');
+        uint256 id = lpStakersIds[_msgSender()];
+        if (id == 0) {
+            lpStakers.push();
+            id = lpStakers.length;
+            lpStakersIds[_msgSender()] = id;
+            lpStakers[id - 1].lpStakerAddress = _msgSender();
+        }
+        lpStakers[id - 1].totalLPStaked = lpStakers[id - 1].totalLPStaked.add(amount);
     }
 
     function unlockTokens() public {

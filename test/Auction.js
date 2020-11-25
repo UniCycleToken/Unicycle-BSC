@@ -16,7 +16,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     this.unic = await UNICToken.new({ from: owner });
     this.auction = await Auction.new(this.unic.address, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
-    await this.unic.mint(getBNEth('2500000'), { from: owner })
+    await this.unic.mint(getBNEth('2500000'), { from: owner });
     await this.unic.addBurner(this.auction.address, { from: owner });
   });
 

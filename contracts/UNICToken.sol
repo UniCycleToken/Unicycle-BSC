@@ -10,7 +10,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
 
     uint256 public startTime;
     uint256 public MINT_CAP_UNIC_CONST = 2500000000000000000000000;
-    mapping(address => bool) public blacklistedAddresses;
+    mapping(address => bool) internal _blacklistedAddresses;
 
     address internal _auctionAddress;
     address internal _owner;
@@ -21,8 +21,8 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         _;
     }
 
-    modifier isBlacklisted(address adrs) {
-        require(!blacklistedAddresses[adrs], "In black list");
+    modifier isBlacklisted(address account) {
+        require(!_blacklistedAddresses[account], "In black list");
         _;
     }
 
@@ -30,6 +30,11 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         _burnerAddresses[_msgSender()] = true;
         _owner = _msgSender();
         startTime = now;
+    }
+
+    function getIsBlackListed(address account) external override view returns (bool) {
+        if (_blacklistedAddresses[account]) return true;
+        return false;
     }
 
     function setAuction(address auctionAddress) external onlyOwner {
@@ -60,13 +65,13 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         _burn(_auctionAddress, amount);
     }
 
-    function addToBlacklist(address adrs) public onlyOwner isBlacklisted(adrs) {
-        blacklistedAddresses[adrs] = true;
+    function addToBlacklist(address account) public onlyOwner isBlacklisted(account) {
+        _blacklistedAddresses[account] = true;
     }
 
-    function rempoveFromBlacklist(address adrs) public onlyOwner {
-        require(blacklistedAddresses[adrs], "Not blacklisted");
-        delete blacklistedAddresses[adrs];
+    function rempoveFromBlacklist(address account) public onlyOwner {
+        require(_blacklistedAddresses[account], "Not blacklisted");
+        delete _blacklistedAddresses[account];
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override isBlacklisted(from) {}
