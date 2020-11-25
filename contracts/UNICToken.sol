@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Interfaces.sol";
 
 
-contract NUKEToken is INukeToken, ERC20, Ownable {
+contract UNICToken is IUnicToken, ERC20, Ownable {
     using SafeMath for uint256;
 
     uint256 public startTime;
-    uint256 public MINT_CAP_NUKE_CONST = 2500000000000000000000000;
+    uint256 public MINT_CAP_UNIC_CONST = 2500000000000000000000000;
     mapping(address => bool) public blacklistedAddresses;
 
     address internal _auctionAddress;
@@ -26,7 +26,7 @@ contract NUKEToken is INukeToken, ERC20, Ownable {
         _;
     }
 
-    constructor () public ERC20("NUKEToken", "NUKE") {
+    constructor () public ERC20("UNICToken", "UNIC") {
         _burnerAddresses[_msgSender()] = true;
         _owner = _msgSender();
         startTime = now;

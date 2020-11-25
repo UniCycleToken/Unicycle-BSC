@@ -6,31 +6,31 @@ const {
 const { expect } = require('chai');
 const { getBNEth } = require('../utils/getBN');
 
-const NUKEToken = artifacts.require('NUKEToken');
+const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
 
 contract('AUCTION test', async ([owner, alice, bob]) => {
   const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
   beforeEach(async () => {
-    this.nuke = await NUKEToken.new({ from: owner });
-    this.auction = await Auction.new(this.nuke.address, { from: owner });
-    await this.nuke.setAuction(this.auction.address, { from: owner });
-    await this.nuke.mint(getBNEth('2500000'), { from: owner })
-    await this.nuke.addBurner(this.auction.address, { from: owner });
+    this.unic = await UNICToken.new({ from: owner });
+    this.auction = await Auction.new(this.unic.address, { from: owner });
+    await this.unic.setAuction(this.auction.address, { from: owner });
+    await this.unic.mint(getBNEth('2500000'), { from: owner })
+    await this.unic.addBurner(this.auction.address, { from: owner });
   });
 
   describe('check participate/stake', async () => {
     it('participate postive tests', async () => {
-      expect(await this.nuke.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2500000'));
+      expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2500000'));
       await this.auction.participate({ from: alice, value: getBNEth('1')});
       await this.auction.participate({ from: bob, value: getBNEth('4')});
       let auctionInfo = await this.auction.getAuctionInfo({ from: owner });
-      expect(auctionInfo[0]).to.equal(this.nuke.address);
+      expect(auctionInfo[0]).to.equal(this.unic.address);
       expect(auctionInfo[1]).to.be.bignumber.equal(getBNEth('5'));
       await this.auction.unlockTokens({ from: owner });
-      expect(await this.nuke.balanceOf(alice)).to.be.bignumber.equal(getBNEth('500000'));
-      expect(await this.nuke.balanceOf(bob)).to.be.bignumber.equal(getBNEth('2000000'));
+      expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(getBNEth('500000'));
+      expect(await this.unic.balanceOf(bob)).to.be.bignumber.equal(getBNEth('2000000'));
       auctionInfo = await this.auction.getAuctionInfo({ from: owner });
       expect(auctionInfo[1]).to.be.bignumber.equal(getBNEth('0'));
     })
@@ -40,7 +40,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
         await this.auction.participate({ from: alice, value: getBNEth('1')});
         await this.auction.participate({ from: bob, value: getBNEth('4')});
         await this.auction.unlockTokens({ from: owner });
-        await this.nuke.approve(this.auction.address, getBNEth('500000'), { from: alice});
+        await this.unic.approve(this.auction.address, getBNEth('500000'), { from: alice});
       });
 
       it('stake positive tests', async () => {
@@ -54,13 +54,13 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
         auctionInfo = await this.auction.getAuctionInfo({ from: owner });
         expect(auctionInfo[1]).to.be.bignumber.equal(getBNEth('5'));
         // minted tokens 2500000 + 95% of staked 500000
-        expect(await this.nuke.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2975000'));
+        expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2975000'));
         // checking that number of staked tokens is updated
         expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('200000'));
         expect((await this.auction.getStakeInfo(1, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('300000'));
         // unlock and check for 95% ETH payout
         await this.auction.unlockTokens({ from: owner });
-        expect(await this.nuke.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2500000'));
+        expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2500000'));
         expect((await this.auction.getStakeInfo(0, { from: alice }))[1]).to.be.bignumber.equal(getBNEth('1.9'));
         expect((await this.auction.getStakeInfo(1, { from: alice }))[1]).to.be.bignumber.equal(getBNEth('2.85'));
         expect(await this.auction.getNumOfStakes({ from: alice })).to.be.bignumber.equal(new BN(2));
