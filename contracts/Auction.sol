@@ -22,12 +22,12 @@ contract Auction is Context, Ownable {
 
     struct Staker {
         uint256 totalStaked;
-        uint256 numOfStakes;
         Stake[] stakes;
     }
 
-    mapping(address => Staker) stakers;
-    address[] activeStakersAddresses;
+    Staker[] public activeStakers;
+    mapping(address => uint256) activeStakersIds;
+    
     uint256 public _totalStakedUnic;
     uint256 public _totalAuctionedETH;
     IUnicToken internal _unicToken;
@@ -41,17 +41,15 @@ contract Auction is Context, Ownable {
     }
 
     function getNumOfStakes() external view returns (uint256) {
-        return stakers[_msgSender()].numOfStakes;
+        return activeStakers[activeStakersIds[_msgSender()] - 1].stakes.length;
     }
 
+
     function getStakeInfo(uint256 stakeIndex) external view returns (uint256, uint256, uint256) {
-        Stake memory stakeInfo = stakers[_msgSender()].stakes[stakeIndex];
+        Stake memory stakeInfo = activeStakers[activeStakersIds[_msgSender()] - 1].stakes[stakeIndex];
         return (stakeInfo.unicStaked, stakeInfo.ethReward, stakeInfo.stakeEndTime);
     }
 
-    function getStakersAddresses() external view returns (address[] memory) {
-        return activeStakersAddresses;
-    }
 
     function getAuctionInfo() external view onlyOwner returns (address, uint256) {
         return (address(_unicToken), _totalAuctionedETH);
@@ -71,16 +69,20 @@ contract Auction is Context, Ownable {
         require(amount <= _unicToken.balanceOf(_msgSender()), "Insufficient balance");
         require(_unicToken.allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
         // add to address aray for later ethReward payout
-        if (stakers[_msgSender()].numOfStakes == 0) {
-            activeStakersAddresses.push(_msgSender());
+        uint256 id = activeStakersIds[_msgSender()];
+        if (id == 0) {
+            activeStakers.push();    
+            id = activeStakers.length;
+            activeStakersIds[_msgSender()] = id;
         }
-        // modify storage to hold all data about stakes
-        stakers[_msgSender()].numOfStakes = stakers[_msgSender()].numOfStakes.add(1);
-        stakers[_msgSender()].totalStaked = stakers[_msgSender()].totalStaked.add(amount);
+        // modify stakers
+        Staker storage staker = activeStakers[id - 1];
+        staker.totalStaked = staker.totalStaked.add(amount);
         Stake memory newStake;
         newStake.unicStaked = amount;
         newStake.stakeEndTime = block.timestamp.add(duration.mul(86400));
-        stakers[_msgSender()].stakes.push(newStake);
+        staker.stakes.push(newStake);
+        // modify storage
         _totalStakedUnic = _totalStakedUnic.add(amount);
         // TODO: transfer 5% to LP stakers
         uint256 tokensForLp = amount.div(20);
@@ -89,11 +91,24 @@ contract Auction is Context, Ownable {
     }
 
     function unStake(uint256 stakeIndex) external {
-        require(stakers[_msgSender()].numOfStakes > 0, "No staked unics");
-        require(stakers[_msgSender()].stakes[stakeIndex].stakeEndTime > 0, "No stake with this index");
+        Staker storage currentStaker = activeStakers[activeStakersIds[_msgSender()] - 1];
+        require(currentStaker.stakes.length > 0, "No staked unics");
+        require(currentStaker.stakes[stakeIndex].stakeEndTime > 0, "No stake with this index");
 
-        _msgSender().transfer(stakers[_msgSender()].stakes[stakeIndex].ethReward);
-        delete stakers[_msgSender()].stakes[stakeIndex];
+        _msgSender().transfer(currentStaker.stakes[stakeIndex].ethReward);
+        if (stakeIndex != currentStaker.stakes.length - 1) {
+            currentStaker.stakes[stakeIndex] = currentStaker.stakes[currentStaker.stakes.length - 1];
+            delete currentStaker.stakes[currentStaker.stakes.length - 1];
+        } else {
+            delete currentStaker.stakes[stakeIndex];
+        }
+        
+    //     Staker[] public activeStakers;
+    // mapping(address => uint256) activeStakersIds;
+        if (currentStaker.stakes.length == 0) {
+            currentStaker = activeStakers[activeStakers.length -1];
+            activeStakers.pop();
+        }
         // TODO: algorith for ETH payout
     }
 
@@ -106,9 +121,9 @@ contract Auction is Context, Ownable {
         if (_totalAuctionedETH > 0) {
         // TODO: send to team fivePercentOfETH
         // stakers 95% eth payout
-            if (activeStakersAddresses.length > 0) {
-                for (uint256 i = 0; i < activeStakersAddresses.length; i++) {
-                    Staker storage currentStaker = stakers[activeStakersAddresses[i]];
+            if (activeStakers.length > 0) {
+                for (uint256 i = 0; i < activeStakers.length; i++) {
+                    Staker storage currentStaker = activeStakers[i];
                     for (uint j = 0; j < currentStaker.stakes.length; j++) {
                         if (currentStaker.stakes[j].stakeEndTime > block.timestamp) {
                             uint256 currentEthReward = (_totalAuctionedETH.sub(fivePercentOfETH)).mul(10 ** 18).div(_totalStakedUnic).mul(currentStaker.stakes[j].unicStaked);

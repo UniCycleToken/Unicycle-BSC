@@ -70,13 +70,24 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
         await expectRevert(this.auction.stake(getBNEth('500001'), 10, { from: alice }), 'Insufficient balance');
       })
 
-      it('unstake potitive', async () => {
+      it('unstake positive remove last item', async () => {
         await this.auction.stake(getBNEth('200000'), 10, { from: alice });
         await this.auction.stake(getBNEth('300000'), 20, { from: alice });
         await this.auction.participate({ from: owner, value: getBNEth('5')});
         await this.auction.unlockTokens({ from: owner });
         await this.auction.unStake(1, { from: alice });
-        console.log(await this.auction.getStakeInfo(1, { from: alice }));
+        expect((await this.auction.getStakeInfo(1, { from: alice }))[0]).to.be.bignumber.equal(new BN(0));
+      })
+
+      it('unstake positive remove not last item', async () => {
+        await this.auction.stake(getBNEth('200000'), 10, { from: alice });
+        await this.auction.stake(getBNEth('300000'), 20, { from: alice });
+        await this.auction.participate({ from: owner, value: getBNEth('5')});
+        expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('200000'));
+        expect((await this.auction.getStakeInfo(1, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('300000'));
+        await this.auction.unlockTokens({ from: owner });
+        await this.auction.unStake(0, { from: alice });
+        expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('300000'));
       })
 
       // it('unstake negative', async () => {
