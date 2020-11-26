@@ -9,7 +9,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     using SafeMath for uint256;
 
     uint256 public startTime;
-    uint256 public MINT_CAP_UNIC_CONST = 2500000000000000000000000;
+    uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
     mapping(address => bool) internal _blacklistedAddresses;
 
     address internal _auctionAddress;
@@ -33,7 +33,9 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     }
 
     function getIsBlackListed(address account) external override view returns (bool) {
-        if (_blacklistedAddresses[account]) return true;
+        if (_blacklistedAddresses[account]) {
+            return true;
+        }
         return false;
     }
 

@@ -1,4 +1,4 @@
-фв/* eslint-disable */
+/* eslint-disable */
 const {
   BN,
   expectRevert,
@@ -41,7 +41,7 @@ contract('LP related test', async ([owner, alice, bob]) => {
 	});
 
 	
-	it('heck that remove liquidity is blocked', async () => {
+	it('check that remove liquidity is blocked', async () => {
 		const blocktime = (await web3.eth.getBlock()).timestamp;
 		await this.router.addLiquidity(this.weth.address, this.unic.address, getBNEth('10'), getBNEth('10'), 0, 0, owner, blocktime + 30, {from: owner});
 		const lpTokenAddress = await this.factory.getPair(this.weth.address, this.unic.address);
@@ -69,12 +69,27 @@ contract('LP related test', async ([owner, alice, bob]) => {
 			await this.unic.addToBlacklist(lpTokenAddress);
 			await this.auction.LPStake(lpTokenAddress, getBNEth('1'), { from: owner });
 			await this.auction.LPStake(lpTokenAddress, getBNEth('2'), { from: alice });
-			expect(await this.auction.getLPStakeInfo({ from: owner })).to.be.bignumber.equal(getBNEth('1'));
-			expect(await this.auction.getLPStakeInfo({ from: alice })).to.be.bignumber.equal(getBNEth('2'));
+		
+			expect((await this.auction.getLPStakeInfo({ from: owner }))[1]).to.be.bignumber.equal(getBNEth('1'));
+			expect((await this.auction.getLPStakeInfo({ from: alice }))[1]).to.be.bignumber.equal(getBNEth('2'));
+			expect((await this.auction.getLPStakeInfo({ from: owner }))[0]).to.equal(owner);
+			expect((await this.auction.getLPStakeInfo({ from: alice }))[0]).to.equal(alice);
+			expect(await this.auction.getLPStakesLength()).to.be.bignumber.equal(new BN(2));
+			expect(await this.auction._totalStakedLP({ from: owner })).to.be.bignumber.equal(getBNEth('3'));
 			await this.auction.LPStake(lpTokenAddress, getBNEth('2'), { from: owner });
 			await this.auction.LPStake(lpTokenAddress, getBNEth('3'), { from: alice });
-			expect(await this.auction.getLPStakeInfo({ from: owner })).to.be.bignumber.equal(getBNEth('3'));
-			expect(await this.auction.getLPStakeInfo({ from: alice })).to.be.bignumber.equal(getBNEth('5'));
+			expect((await this.auction.getLPStakeInfo({ from: owner }))[1]).to.be.bignumber.equal(getBNEth('3'));
+			expect((await this.auction.getLPStakeInfo({ from: alice }))[1]).to.be.bignumber.equal(getBNEth('5'));
+
+			expect(await this.auction._totalStakedLP({ from: owner })).to.be.bignumber.equal(getBNEth('8'));
+			const ownerOldUnicBalance = await this.unic.balanceOf(owner, { from: owner });
+			const aliceOldUnicBalance = await this.unic.balanceOf(alice, { from: alice });
+			await this.unic.approve(this.auction.address, getBNEth('500000'), { from: owner});
+			expect(await this.unic.balanceOf(owner, { from: owner })).to.be.bignumber.equal(getBNEth('1249990'));
+			expect(await this.unic.balanceOf(alice, { from: alice })).to.be.bignumber.equal(getBNEth('1249990'));
+			await this.auction.stake(getBNEth('10'), 10, {from: owner});
+			expect(await this.unic.balanceOf(owner, { from: owner })).to.be.bignumber.equal(getBNEth('1249980.1875'));
+			expect(await this.unic.balanceOf(alice, { from: alice })).to.be.bignumber.equal(getBNEth('1249990.3125'));
 		})
 		
 	})

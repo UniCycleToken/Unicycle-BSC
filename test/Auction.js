@@ -54,7 +54,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
         auctionInfo = await this.auction.getAuctionInfo({ from: owner });
         expect(auctionInfo[1]).to.be.bignumber.equal(getBNEth('5'));
         // minted tokens 2500000 + 95% of staked 500000
-        expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2975000'));
+        expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('3000000'));
         // checking that number of staked tokens is updated
         expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('200000'));
         expect((await this.auction.getStakeInfo(1, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('300000'));

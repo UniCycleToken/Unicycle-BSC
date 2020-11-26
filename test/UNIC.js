@@ -87,9 +87,9 @@ contract('UNIC test', async ([owner, burner, holder]) => {
   describe('check blacklist', async () => {
     it('blacklist positive tests', async () => {
       await this.unic.addToBlacklist(holder, { from: owner });
-      expect(await this.unic.blacklistedAddresses(holder)).to.equal(true);
+      expect(await this.unic.getIsBlackListed(holder)).to.equal(true);
       await this.unic.rempoveFromBlacklist(holder, { from: owner });
-      expect(await this.unic.blacklistedAddresses(holder)).to.equal(false);
+      expect(await this.unic.getIsBlackListed(holder)).to.equal(false);
     })
 
     it('blacklist negative tests', async () => {

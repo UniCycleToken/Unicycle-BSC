@@ -27,20 +27,21 @@ contract Auction is Context, Ownable {
 
     struct LPStaker {
         address lpStakerAddress;
-        uint256 totalLPStaked;
+added        uint256 lpStaked;
     }
- 
+
     LPStaker[] public lpStakers;
     mapping(address => uint256) lpStakersIds;
 
     Staker[] public activeStakers;
     mapping(address => uint256) activeStakersIds;
 
+    uint256 public _totalStakedLP;
     uint256 public _totalStakedUnic;
     uint256 public _totalAuctionedETH;
     IUnicToken internal _unicToken;
 
-    uint256 public MINT_CAP_UNIC_CONST = 2500000000000000000000000;
+    uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
     AuctionParticipant[] public participants;
 
 
@@ -48,8 +49,12 @@ contract Auction is Context, Ownable {
         _unicToken = IUnicToken(unicTokenAddress);
     }
 
-    function getLPStakeInfo() external view returns (uint256) {
-        return lpStakers[lpStakersIds[_msgSender()] - 1].totalLPStaked;
+    function getLPStakeInfo() external view returns (address, uint256) {
+        return (lpStakers[lpStakersIds[_msgSender()] - 1].lpStakerAddress, lpStakers[lpStakersIds[_msgSender()] - 1].lpStaked);
+    }
+
+    function getLPStakesLength() external view returns (uint256) {
+        return lpStakers.length;
     }
 
     function getNumOfStakes() external view returns (uint256) {
@@ -94,9 +99,13 @@ contract Auction is Context, Ownable {
         // modify storage
         _totalStakedUnic = _totalStakedUnic.add(amount);
         // TODO: transfer 5% to LP stakers or do it in unlock function
-        uint256 tokensForLp = amount.div(20);
+        uint256 fivePercentForLPStakers = amount.div(20);
         //transfer tokens for later burn
-        _unicToken.transferFrom(_msgSender(), address(this), amount.sub(tokensForLp));
+        _unicToken.transferFrom(_msgSender(), address(this), amount);
+        for (uint256 i = 0; i < lpStakers.length; i++) {
+            uint256 unicTokensToAddToEachLPStaker = (fivePercentForLPStakers.mul(lpStakers[i].lpStaked)).div(_totalStakedLP);
+            _unicToken.transfer(lpStakers[i].lpStakerAddress, unicTokensToAddToEachLPStaker);
+        }
     }
 
     function unStake(uint256 stakeIndex) external {
@@ -118,7 +127,7 @@ contract Auction is Context, Ownable {
     }
 
     function LPStake(address token, uint256 amount) external {
-        require(_unicToken.getIsBlackListed(token), 'Token not added');
+        require(_unicToken.getIsBlackListed(token), "Token not added");
         uint256 id = lpStakersIds[_msgSender()];
         if (id == 0) {
             lpStakers.push();
@@ -126,7 +135,8 @@ contract Auction is Context, Ownable {
             lpStakersIds[_msgSender()] = id;
             lpStakers[id - 1].lpStakerAddress = _msgSender();
         }
-        lpStakers[id - 1].totalLPStaked = lpStakers[id - 1].totalLPStaked.add(amount);
+        lpStakers[id - 1].lpStaked = lpStakers[id - 1].lpStaked.add(amount);
+        _totalStakedLP = _totalStakedLP.add(amount);
     }
 
     function unlockTokens() public {
