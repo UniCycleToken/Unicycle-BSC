@@ -27,7 +27,7 @@ contract Auction is Context, Ownable {
 
     struct LPStaker {
         address lpStakerAddress;
-added        uint256 lpStaked;
+        uint256 lpStaked;
     }
 
     LPStaker[] public lpStakers;
@@ -39,6 +39,7 @@ added        uint256 lpStaked;
     uint256 public _totalStakedLP;
     uint256 public _totalStakedUnic;
     uint256 public _totalAuctionedETH;
+
     IUnicToken internal _unicToken;
 
     uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
@@ -53,7 +54,7 @@ added        uint256 lpStaked;
         return (lpStakers[lpStakersIds[_msgSender()] - 1].lpStakerAddress, lpStakers[lpStakersIds[_msgSender()] - 1].lpStaked);
     }
 
-    function getLPStakesLength() external view returns (uint256) {
+    function getNumOfLPStakes() external view returns (uint256) {
         return lpStakers.length;
     }
 
@@ -80,6 +81,7 @@ added        uint256 lpStaked;
 
     function stake(uint256 amount, uint256 duration) external {
         // check for balance and allowance
+        require(duration <= 100, "Cant stake more than 100 days");
         require(amount <= _unicToken.balanceOf(_msgSender()), "Insufficient balance");
         require(_unicToken.allowance(_msgSender(), address(this)) >= amount, "Insufficient allowance");
         // add to address aray for later ethReward payout
@@ -110,7 +112,6 @@ added        uint256 lpStaked;
 
     function unStake(uint256 stakeIndex) external {
         Staker storage currentStaker = activeStakers[activeStakersIds[_msgSender()] - 1];
-        require(currentStaker.stakes.length > 0, "No staked unics");
         require(currentStaker.stakes[stakeIndex].stakeEndTime > 0, "No stake with this index");
 
         _msgSender().transfer(currentStaker.stakes[stakeIndex].ethReward);

@@ -68,6 +68,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
 
       it('stake negative tests', async () => {
         await expectRevert(this.auction.stake(getBNEth('500001'), 10, { from: alice }), 'Insufficient balance');
+        await expectRevert(this.auction.stake(getBNEth('1'), 101, { from: alice }), 'Cant stake more than 100 days');
       })
 
       it('unstake positive remove last item', async () => {
@@ -90,9 +91,14 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
         expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('300000'));
       })
 
-      // it('unstake negative', async () => {
-        
-      // })
+      it('unstake negative', async () => {
+        await this.auction.stake(getBNEth('200000'), 10, { from: alice });
+        await this.auction.participate({ from: owner, value: getBNEth('5')});
+        expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('200000'));
+        await this.auction.unlockTokens({ from: owner });
+        await this.auction.unStake(0, { from: alice });
+        await expectRevert(this.auction.unStake(0, { from: alice }), "No stake with this index");
+      })
     })
   })
 });
