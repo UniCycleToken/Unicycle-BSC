@@ -110,8 +110,6 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
         await this.auction.participate({ from: owner, value: getBNEth('5')});
         await this.auction.unlockTokens({ from: owner });
         expect(await this.auction.getNumOfStakes({ from: bob })).to.be.bignumber.equal(new BN(1));
-        console.log((await this.auction.getStakerId({ from: bob })).toString());
-        console.log((await this.auction.getStakerId({ from: alice })).toString());
         expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('200000'));
         await this.auction.unStake(0, { from: bob });
         await expectRevert(this.auction.getNumOfStakes({ from: bob }), 'No stakes');
@@ -122,15 +120,15 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
         expect(await this.auction.getNumOfActiveStakers({ from: alice })).to.be.bignumber.equal(new BN(0));
       })
 
-      // it('unstake negative', async () => {
-      //   await this.auction.stake(getBNEth('200000'), 10, { from: alice });
-      //   await this.auction.participate({ from: owner, value: getBNEth('5')});
-      //   expect(await this.auction.getNumOfStakes({ from: alice })).to.be.bignumber.equal(new BN(1));
-      //   expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('200000'));
-      //   await this.auction.unlockTokens({ from: owner });
-      //   await this.auction.unStake(0, { from: alice });
-      //   await expectRevert(this.auction.unStake(0, { from: alice }), "No stake with this index");
-      // })
+      it('unstake negative', async () => {
+        await this.auction.stake(getBNEth('200000'), 10, { from: alice });
+        await this.auction.participate({ from: owner, value: getBNEth('5')});
+        expect(await this.auction.getNumOfStakes({ from: alice })).to.be.bignumber.equal(new BN(1));
+        expect((await this.auction.getStakeInfo(0, { from: alice }))[0]).to.be.bignumber.equal(getBNEth('200000'));
+        await this.auction.unlockTokens({ from: owner });
+        await this.auction.unStake(0, { from: alice });
+        await expectRevert(this.auction.getNumOfStakes({ from: alice }), 'No stakes');
+      })
     })
   })
 });

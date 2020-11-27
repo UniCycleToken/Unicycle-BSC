@@ -45,6 +45,10 @@ contract Auction is Context, Ownable {
     uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
     AuctionParticipant[] public participants;
 
+    modifier hasStakes(address account) {
+        require(activeStakersIds[account] > 0, "No stakes");
+        _;
+    }
 
     constructor (address unicTokenAddress) public {
         _unicToken = IUnicToken(unicTokenAddress);
@@ -58,21 +62,12 @@ contract Auction is Context, Ownable {
         return lpStakers.length;
     }
 
-    function getActiveStaterInfo() external view returns (address, uint256) {
-        return (activeStakers[activeStakersIds[_msgSender()] - 1].stakerAddress, activeStakers[activeStakersIds[_msgSender()] - 1].stakes.length);
-    }
-
     function getNumOfActiveStakers() external view returns (uint256) {
         return activeStakers.length;
     }
 
-    function getNumOfStakes() external view returns (uint256) {
-        require(activeStakersIds[_msgSender()] > 0, "No stakes");
+    function getNumOfStakes() external view hasStakes(_msgSender()) returns (uint256) {
         return activeStakers[activeStakersIds[_msgSender()] - 1].stakes.length;
-    }
-
-    function getStakerId() external view returns (uint256) {
-        return activeStakersIds[_msgSender()];
     }
 
     function getStakeInfo(uint256 stakeIndex) external view returns (uint256, uint256, uint256) {
@@ -123,10 +118,8 @@ contract Auction is Context, Ownable {
         }
     }
 
-    function unStake(uint256 stakeIndex) external {
+    function unStake(uint256 stakeIndex) external hasStakes(_msgSender()) {
         Staker storage currentStaker = activeStakers[activeStakersIds[_msgSender()] - 1];
-        require(currentStaker.stakes[stakeIndex].unicStaked > 0, "No stake with this index");
-
         _msgSender().transfer(currentStaker.stakes[stakeIndex].ethReward);
         if (stakeIndex != currentStaker.stakes.length - 1) {
             currentStaker.stakes[stakeIndex] = currentStaker.stakes[currentStaker.stakes.length - 1];
