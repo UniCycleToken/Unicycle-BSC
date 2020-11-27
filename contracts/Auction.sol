@@ -21,7 +21,7 @@ contract Auction is Context, Ownable {
     }
 
     struct Staker {
-        uint256 totalStaked;
+        address stakerAddress;
         Stake[] stakes;
     }
 
@@ -54,12 +54,25 @@ contract Auction is Context, Ownable {
         return (lpStakers[lpStakersIds[_msgSender()] - 1].lpStakerAddress, lpStakers[lpStakersIds[_msgSender()] - 1].lpStaked);
     }
 
-    function getNumOfLPStakes() external view returns (uint256) {
+    function getNumOfLPStakers() external view returns (uint256) {
         return lpStakers.length;
     }
 
+    function getActiveStaterInfo() external view returns (address, uint256) {
+        return (activeStakers[activeStakersIds[_msgSender()] - 1].stakerAddress, activeStakers[activeStakersIds[_msgSender()] - 1].stakes.length);
+    }
+
+    function getNumOfActiveStakers() external view returns (uint256) {
+        return activeStakers.length;
+    }
+
     function getNumOfStakes() external view returns (uint256) {
+        require(activeStakersIds[_msgSender()] > 0, "No stakes");
         return activeStakers[activeStakersIds[_msgSender()] - 1].stakes.length;
+    }
+
+    function getStakerId() external view returns (uint256) {
+        return activeStakersIds[_msgSender()];
     }
 
     function getStakeInfo(uint256 stakeIndex) external view returns (uint256, uint256, uint256) {
@@ -90,10 +103,10 @@ contract Auction is Context, Ownable {
             activeStakers.push();
             id = activeStakers.length;
             activeStakersIds[_msgSender()] = id;
+            activeStakers[id - 1].stakerAddress = _msgSender();
         }
         // modify stakers
         Staker storage staker = activeStakers[id - 1];
-        staker.totalStaked = staker.totalStaked.add(amount);
         Stake memory newStake;
         newStake.unicStaked = amount;
         newStake.stakeEndTime = block.timestamp.add(duration.mul(86400));
@@ -112,17 +125,22 @@ contract Auction is Context, Ownable {
 
     function unStake(uint256 stakeIndex) external {
         Staker storage currentStaker = activeStakers[activeStakersIds[_msgSender()] - 1];
-        require(currentStaker.stakes[stakeIndex].stakeEndTime > 0, "No stake with this index");
+        require(currentStaker.stakes[stakeIndex].unicStaked > 0, "No stake with this index");
 
         _msgSender().transfer(currentStaker.stakes[stakeIndex].ethReward);
         if (stakeIndex != currentStaker.stakes.length - 1) {
             currentStaker.stakes[stakeIndex] = currentStaker.stakes[currentStaker.stakes.length - 1];
-            delete currentStaker.stakes[currentStaker.stakes.length - 1];
+            currentStaker.stakes.pop();
         } else {
-            delete currentStaker.stakes[stakeIndex];
+            currentStaker.stakes.pop();
         }
         if (currentStaker.stakes.length == 0) {
-            currentStaker = activeStakers[activeStakers.length - 1];
+            if (activeStakers.length > 1) {
+                currentStaker.stakerAddress = activeStakers[activeStakers.length - 1].stakerAddress;
+                currentStaker.stakes = activeStakers[activeStakers.length - 1].stakes;
+                activeStakersIds[activeStakers[activeStakers.length - 1].stakerAddress] = activeStakersIds[_msgSender()];
+            }
+            delete activeStakersIds[_msgSender()];
             activeStakers.pop();
         }
     }
@@ -141,6 +159,7 @@ contract Auction is Context, Ownable {
     }
 
     function unlockTokens() public {
+        require(_totalAuctionedETH > 0, "No participants");
         uint256 unicPercentPayout = MINT_CAP_UNIC_CONST.div(_totalAuctionedETH);
         for (uint256 i = 0; i < participants.length; i++) {
             _unicToken.transfer(participants[i].participantAddress, participants[i].amountETHParticipated.mul(unicPercentPayout));
