@@ -1,3 +1,3 @@
 module.exports = {
-  skipFiles: ['testContracts', 'Migrations.sol', 'Mintable.sol']
+  skipFiles: ['Migrations.sol', 'Mintable.sol']
 };
