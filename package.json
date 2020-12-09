@@ -13,7 +13,8 @@
     "build": "truffle build",
     "pretest": "truffle build && cp ./node_modules/@uniswap/v2-periphery/build/WETH9.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-periphery/build/UniswapV2Router02.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Pair.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Factory.json ./build/contracts/",
     "test": "truffle test",
-    "truffle": "truffle"
+    "truffle": "truffle",
+    "flatten": "rm -rf ./deployments/* && mkdir -p ./deployments && truffle-flattener ./contracts/UNICToken.sol  >> ./deployments/UNICToken.sol && truffle-flattener ./contracts/Auction.sol  >> ./deployments/Auction.sol"
   },
   "keywords": [],
   "author": "",
