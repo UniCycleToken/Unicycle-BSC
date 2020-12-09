@@ -13,7 +13,6 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     mapping(address => bool) internal _blacklistedAddresses;
 
     address internal _auctionAddress;
-    address internal _owner;
     mapping (address => bool) internal _burnerAddresses;
 
     modifier isBurner() {
@@ -28,7 +27,6 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
 
     constructor () public ERC20("UNICToken", "UNIC") {
         _burnerAddresses[_msgSender()] = true;
-        _owner = _msgSender();
         startTime = now;
     }
 
@@ -59,7 +57,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     }
 
     function mint(uint256 amount) public override {
-        require(_msgSender() == _owner || _msgSender() == _auctionAddress, "No rights to mint");
+        require(_msgSender() == owner() || _msgSender() == _auctionAddress, "No rights to mint");
         _mint(_auctionAddress, amount);
     }
 
