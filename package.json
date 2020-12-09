@@ -6,14 +6,14 @@
     "test": "test"
   },
   "scripts": {
-    "lint": "npm run eslint && npm run solium",
     "eslint": "eslint test/",
     "solium": "solium --dir contracts",
+    "lint": "npm run eslint && npm run solium",
     "coverage": "truffle run coverage",
     "build": "truffle build",
+    "pretest": "truffle build && cp ./node_modules/@uniswap/v2-periphery/build/WETH9.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-periphery/build/UniswapV2Router02.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Pair.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Factory.json ./build/contracts/",
     "test": "truffle test",
-    "truffle": "truffle",
-    "flatten": "truffle-flattener contracts/ForFlattened.sol  >> contracts/Flattened.sol"
+    "truffle": "truffle"
   },
   "keywords": [],
   "author": "",
