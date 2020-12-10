@@ -57,6 +57,7 @@ contract Auction is Context, Ownable {
         _;
     }
 
+    // TODO require not zero address
     constructor (address unicTokenAddress) public {
         _unicToken = IUnicToken(unicTokenAddress);
     }
@@ -89,6 +90,7 @@ contract Auction is Context, Ownable {
     }
 
     function participate() external payable {
+        // TODO require msg.value > 0
         _totalAuctionedETH = _totalAuctionedETH.add(msg.value);
         AuctionParticipant memory participant;
         participant.participantAddress = _msgSender();
@@ -161,8 +163,12 @@ contract Auction is Context, Ownable {
     }
 
     function unlockTokens() public {
+        // TODO participant can participate 0 eth, check participate
         require(_totalAuctionedETH > 0, "No participants");
         uint256 unicPercentPayout = MINT_CAP_UNIC_CONST.div(_totalAuctionedETH);
+        // TODO each user should take it by self
+        // eth also user should take by self
+        // (any) -> 
         for (uint256 i = 0; i < participants.length; i++) {
             _unicToken.transfer(participants[i].participantAddress, participants[i].amountETHParticipated.mul(unicPercentPayout));
         }

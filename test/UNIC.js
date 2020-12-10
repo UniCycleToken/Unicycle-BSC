@@ -1,9 +1,13 @@
+// TODO remove lint disable
 /* eslint-disable */
+
+// TODO use @openzeppelin/test-helpers
 const {
   BN,
   expectRevert,
 } = require('openzeppelin-test-helpers');
 const { expect } = require('chai');
+// TODO use ether from @openzeppelin/test-helpers instead
 const { getBNEth } = require('../utils/getBN');
 
 const UNICToken = artifacts.require('UNICToken');
@@ -76,6 +80,11 @@ contract('UNIC test', async ([owner, burner, holder]) => {
       expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('1'));
     })
 
+    // TODO
+    // auction is not set
+    // mint few times in one day
+    // should mint only if auction has participants in this day and mint from prev day distributed
+
     // it('mint negative tests', async () => {
     //   await expectRevert.unspecified(this.unic.mint(getBNEth('1'), { from: burner }));
     //   await expectRevert(this.unic.mint(getBNEth('2500001')), 'No mint over 2500000 tokens');
@@ -102,6 +111,7 @@ contract('UNIC test', async ([owner, burner, holder]) => {
   })
 
   describe('check transfer', async () => {
+    // TODO uncomment
     // it('transfer positive tests', async () => {
     //   await this.unic.addToBlacklist(holder, { from: owner });
     // })

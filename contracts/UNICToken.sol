@@ -42,6 +42,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         return false;
     }
 
+    // TODO require address not zero
     function setAuction(address auctionAddress) external onlyOwner {
         _auctionAddress = auctionAddress;
     }
@@ -63,6 +64,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         _burnerAddresses[account] = false;
     }
 
+    // TODO amount always 2,500,000 per day
     function mint(uint256 amount) public override {
         require(_msgSender() == owner() || _msgSender() == _auctionAddress, "No rights to mint");
         _mint(_auctionAddress, amount);
