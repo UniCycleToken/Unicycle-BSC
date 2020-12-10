@@ -42,7 +42,10 @@ contract Auction is Context, Ownable {
 
     IUnicToken internal _unicToken;
 
+    // TODO rename
+    // uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
     uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
+
     AuctionParticipant[] public participants;
 
     modifier hasStakes(address account) {

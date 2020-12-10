@@ -9,7 +9,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     using SafeMath for uint256;
 
     uint256 public startTime;
-    uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
+
     mapping(address => bool) internal _blacklistedAddresses;
 
     address internal _auctionAddress;
@@ -74,5 +74,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         delete _blacklistedAddresses[account];
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override isBlacklisted(from) {}
+    function _beforeTokenTransfer(address from, address, uint256) internal override isBlacklisted(from) {
+        // solium-disable-previous-line no-empty-blocks
+    }
 }
