@@ -9,12 +9,14 @@ import "./Interfaces.sol";
 contract Auction is Context, Ownable {
     using SafeMath for uint256;
 
+    // TODO AuctionParticipant -> Auctioneer ??? (Participant)
     struct AuctionParticipant {
         address payable participantAddress;
         uint256 amountETHParticipated;
     }
 
     struct Stake {
+        // TODO unic -> UNIC
         uint256 unicStaked;
         uint256 ethReward;
         uint256 stakeEndTime;
@@ -31,6 +33,7 @@ contract Auction is Context, Ownable {
     }
 
     LPStaker[] public lpStakers;
+    // TODO always set access modifiers
     mapping(address => uint256) lpStakersIds;
 
     Staker[] public activeStakers;
@@ -38,11 +41,12 @@ contract Auction is Context, Ownable {
 
     uint256 public _totalStakedLP;
     uint256 public _totalStakedUnic;
+    // TODO ??
     uint256 public _totalAuctionedETH;
 
     IUnicToken internal _unicToken;
 
-    // TODO rename
+    // TODO rename, constant, literal
     // uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
     uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
 
@@ -65,10 +69,12 @@ contract Auction is Context, Ownable {
         return lpStakers.length;
     }
 
+    // TODO getNumOfActiveStakers -> getActiveStakersCount
     function getNumOfActiveStakers() external view returns (uint256) {
         return activeStakers.length;
     }
 
+    // TODO ^
     function getNumOfStakes() external view hasStakes(_msgSender()) returns (uint256) {
         return activeStakers[activeStakersIds[_msgSender()] - 1].stakes.length;
     }
