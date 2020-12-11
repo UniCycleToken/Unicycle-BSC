@@ -19,7 +19,7 @@ contract('UNIC test', async ([owner, burner, holder]) => {
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
     this.auction = await Auction.new(this.unic.address, { from: owner });
-    await this.unic.setAuction(this.auction.address);
+    await this.unic.setAuction(this.auction.address, { from: owner });
   });
 
   it('checking the unic token parameters', async () => {
@@ -29,76 +29,21 @@ contract('UNIC test', async ([owner, burner, holder]) => {
     expect(await this.unic.totalSupply.call()).to.be.bignumber.equal(new BN('0'));
   });
 
-  describe('check burn', async () => {
+  describe('check startAuction => setStartTime and mint', async () => {
     beforeEach(async () => {
-      await this.unic.mint(getBNEth('1'), { from: owner });
-    })
-
-    it('checking isBurnAllowed function', async () => {
-      expect(await this.unic.isBurnAllowed(owner, { from: owner })).to.equal(true);
-      expect(await this.unic.isBurnAllowed(holder, { from: owner })).to.equal(false);
-    });
-
-    it('addBurner positive tests', async () => {
-      expect(await this.unic.isBurnAllowed(burner), { from: owner }).to.equal(false);
-      await this.unic.addBurner(burner, { from: owner });
-      expect(await this.unic.isBurnAllowed(burner, { from: owner })).to.equal(true);
-      await expectRevert(this.unic.addBurner(burner, { from: owner }), 'Already burner');
-    });
-
-    it('addBurner negative tests', async () => {
-      await expectRevert(this.unic.addBurner(burner, { from: holder }), 'Ownable: caller is not the owner');
-      await expectRevert(this.unic.addBurner(ZERO_ADDRESS, { from: owner }), 'Cant add zero address');
-    });
-
-    it('removeBurner positive tests', async () => {
-      await this.unic.addBurner(burner, { from: owner });
-      expect(await this.unic.isBurnAllowed(burner, { from: burner })).to.equal(true);
-      await this.unic.removeBurner(burner, { from: owner });
-      expect(await this.unic.isBurnAllowed(burner, { from: burner })).to.equal(false);
-    });
-
-    it('removeBurner negative tests', async () => {
-      await expectRevert(this.unic.removeBurner(holder, { from: owner }), 'Isnt burner');
-    });
-
-    it('burn positive tests', async () => {
-      await this.unic.burn(getBNEth('0.5'), { from: owner });
-      expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('0.5'));
-    })
-
-    it('burn negative tests', async () => {
-      await expectRevert(this.unic.burn(getBNEth('0.5'), { from: holder }), 'Caller is not burner');
-      await expectRevert.unspecified(this.unic.burn(getBNEth('1.1'), { from: owner }));
+      const startTime = Math.floor(Date.now() / 1000);
+      await this.auction.startAuction(startTime, { from: owner });
+      expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2500000'));
+      expect(await this.unic.getStartTime()).to.be.bignumber.equal(startTime);
     })
   })
 
-  describe('check mint', async () => {
-    
-    it('mint positive tests', async () => {
-      await this.unic.mint(getBNEth('1'), { from: owner });
-      expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('1'));
-    })
-
-    // TODO
-    // auction is not set
-    // mint few times in one day
-    // should mint only if auction has participants in this day and mint from prev day distributed
-
-    // it('mint negative tests', async () => {
-    //   await expectRevert.unspecified(this.unic.mint(getBNEth('1'), { from: burner }));
-    //   await expectRevert(this.unic.mint(getBNEth('2500001')), 'No mint over 2500000 tokens');
-    //   await this.unic.mint(getBNEth('2500000'), { from: owner });
-    //   expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2500000'));
-    //   await expectRevert(this.unic.mint(getBNEth('1')), 'No mint over 2500000 tokens');
-    // })
-  })
   describe('check blacklist', async () => {
     it('blacklist positive tests', async () => {
       await this.unic.addToBlacklist(holder, { from: owner });
-      expect(await this.unic.getIsBlackListed(holder)).to.equal(true);
+      expect(await this.unic.isBlacklisted(holder)).to.equal(true);
       await this.unic.rempoveFromBlacklist(holder, { from: owner });
-      expect(await this.unic.getIsBlackListed(holder)).to.equal(false);
+      expect(await this.unic.isBlacklisted(holder)).to.equal(false);
     })
 
     it('blacklist negative tests', async () => {
@@ -108,17 +53,5 @@ contract('UNIC test', async ([owner, burner, holder]) => {
       await expectRevert(this.unic.rempoveFromBlacklist(holder, { from: owner }), 'Not blacklisted');
       await expectRevert.unspecified(this.unic.rempoveFromBlacklist(burner, { from: holder }));
     })
-  })
-
-  describe('check transfer', async () => {
-    // TODO uncomment
-    // it('transfer positive tests', async () => {
-    //   await this.unic.addToBlacklist(holder, { from: owner });
-    // })
-
-    // it('transfer negative tests', async () => {
-    //   await this.unic.addToBlacklist(holder, { from: owner });
-    //   await expectRevert(this.unic.transfer(owner, getBNEth('0.5'), {from: holder }), 'Blacklisted.');
-    // })
   })
 });

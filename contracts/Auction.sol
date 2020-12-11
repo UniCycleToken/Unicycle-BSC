@@ -46,9 +46,7 @@ contract Auction is Context, Ownable {
 
     IUnicToken internal _unicToken;
 
-    // TODO rename, constant, literal
-    // uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
-    uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
+    uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
 
     AuctionParticipant[] public participants;
 
@@ -60,6 +58,12 @@ contract Auction is Context, Ownable {
     // TODO require not zero address
     constructor (address unicTokenAddress) public {
         _unicToken = IUnicToken(unicTokenAddress);
+    }
+
+    function startAuction(uint256 startTime) public onlyOwner {
+        require(_unicToken.getStartTime() == 0, 'Auction was started');
+        _unicToken.setStartTime(startTime);
+        _unicToken.mint(DAILY_MINT_CAP);
     }
 
     function getLPStakeInfo() external view returns (address, uint256) {
@@ -150,7 +154,7 @@ contract Auction is Context, Ownable {
     }
 
     function LPStake(address token, uint256 amount) external {
-        require(_unicToken.getIsBlackListed(token), "Token not added");
+        require(_unicToken.isBlacklisted(token), "Token not added");
         uint256 id = lpStakersIds[_msgSender()];
         if (id == 0) {
             lpStakers.push();
@@ -165,7 +169,7 @@ contract Auction is Context, Ownable {
     function unlockTokens() public {
         // TODO participant can participate 0 eth, check participate
         require(_totalAuctionedETH > 0, "No participants");
-        uint256 unicPercentPayout = MINT_CAP_UNIC_CONST.div(_totalAuctionedETH);
+        uint256 unicPercentPayout = DAILY_MINT_CAP.div(_totalAuctionedETH);
         // TODO each user should take it by self
         // eth also user should take by self
         // (any) -> 
@@ -173,17 +177,15 @@ contract Auction is Context, Ownable {
             _unicToken.transfer(participants[i].participantAddress, participants[i].amountETHParticipated.mul(unicPercentPayout));
         }
         uint256 fivePercentOfETH = _totalAuctionedETH.div(20);
-        if (_totalAuctionedETH > 0) {
         // TODO: send to team fivePercentOfETH
         // stakers 95% eth payout
-            if (activeStakers.length > 0) {
-                for (uint256 i = 0; i < activeStakers.length; i++) {
-                    Staker storage currentStaker = activeStakers[i];
-                    for (uint j = 0; j < currentStaker.stakes.length; j++) {
-                        if (currentStaker.stakes[j].stakeEndTime > block.timestamp) {
-                            uint256 currentEthReward = (_totalAuctionedETH.sub(fivePercentOfETH)).mul(10 ** 18).div(_totalStakedUnic).mul(currentStaker.stakes[j].unicStaked);
-                            currentStaker.stakes[j].ethReward = currentStaker.stakes[j].ethReward.add(currentEthReward.div(10 ** 18));
-                        }
+        if (activeStakers.length > 0) {
+            for (uint256 i = 0; i < activeStakers.length; i++) {
+                Staker storage currentStaker = activeStakers[i];
+                for (uint j = 0; j < currentStaker.stakes.length; j++) {
+                    if (currentStaker.stakes[j].stakeEndTime > block.timestamp) {
+                        uint256 currentEthReward = (_totalAuctionedETH.sub(fivePercentOfETH)).mul(10 ** 18).div(_totalStakedUnic).mul(currentStaker.stakes[j].unicStaked);
+                        currentStaker.stakes[j].ethReward = currentStaker.stakes[j].ethReward.add(currentEthReward.div(10 ** 18));
                     }
                 }
             }
@@ -193,6 +195,6 @@ contract Auction is Context, Ownable {
         _totalStakedUnic = 0;
         uint256 balanceToBurn = _unicToken.balanceOf(address(this));
         _unicToken.burn(balanceToBurn);
-        _unicToken.mint(MINT_CAP_UNIC_CONST);
+        _unicToken.mint(DAILY_MINT_CAP);
     }
 }
