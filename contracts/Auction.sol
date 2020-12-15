@@ -45,12 +45,14 @@ contract Auction is Context, Ownable {
 
     uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
     address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
+    uint256 public constant PERCENT_100 = 10 ** 18;
 
     AuctionParticipant[] public participants;
 
     uint256[] public mintTimes;
     mapping(uint256 => mapping(address => uint256)) public dailyStakedUnic;
     mapping(uint256 => mapping(address => uint256)) public dailyParticipatedETH;
+    mapping(uint256 => uint256) public dailyTotalStakedUnic;
     mapping(uint256 => uint256) public dailyTotalParticipatedETH;
     
     modifier hasStakes(address account) {
@@ -88,6 +90,14 @@ contract Auction is Context, Ownable {
         return dailyParticipatedETH[mintTime][_msgSender()];
     }
 
+    function getDailyTotalStakedUnic(uint256 stakeTime) external view returns(uint256) {
+        return dailyTotalStakedUnic[stakeTime];
+    }
+
+    function getStakedUnic(uint256 stakeTime) external view returns(uint256) {
+        return dailyStakedUnic[stakeTime][_msgSender()];
+    }
+
     function startAuction(uint256 startTime) internal  {
         setLastMintTime(startTime);
         _unicToken.mint(DAILY_MINT_CAP);
@@ -110,17 +120,34 @@ contract Auction is Context, Ownable {
     }
 
     function stake(uint256 amount) external {
-        require(amount > 0, 'Insufficient amount');
+        require(amount > 0, 'Invalid stake amount');
         uint256 stakeTime;
         if (getLastMintTime().add(86400) < now) {
             stakeTime = getLastMintTime().add(((now.sub(getLastMintTime())).div(86400)).mul(86400));
         } else {
             stakeTime = getLastMintTime();
         }
+        _unicToken.transferFrom(_msgSender(), address(this), amount);
+        dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].add(amount);
         dailyStakedUnic[stakeTime][_msgSender()] = dailyStakedUnic[stakeTime][_msgSender()].add(amount);
         uint256 fivePercentOfStake = amount.div(20);
         // TODO: distribute to LP stakers, just leave them here for now
         _unicToken.burn(amount.sub(fivePercentOfStake));
+    }
+
+    function unStake(uint256 stakeTime) external {
+        require(dailyStakedUnic[stakeTime][_msgSender()] > 0, 'Nothing to unstake');
+        uint256 i;
+        uint256 totalStakeEarnings;
+        for (i = stakeTime; i <= now; i += 86400) {
+            if (dailyTotalParticipatedETH[i] > 0) {
+                uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()].mul(PERCENT_100).div(dailyTotalStakedUnic[i]).mul(100).div(PERCENT_100);
+                uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
+                totalStakeEarnings = totalStakeEarnings.add(stakersETHShare.mul(PERCENT_100).div(100).mul(stakeEarningsPercent).div(PERCENT_100));
+            }
+        }
+        delete dailyStakedUnic[stakeTime][_msgSender()];
+        _msgSender().transfer(totalStakeEarnings);
     }
 
     // function stake(uint256 amount, uint256 duration) external {
