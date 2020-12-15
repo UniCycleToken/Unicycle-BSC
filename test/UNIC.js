@@ -1,24 +1,18 @@
-// TODO remove lint disable
-/* eslint-disable */
-
-// TODO use @openzeppelin/test-helpers
 const {
   BN,
   expectRevert,
 } = require('openzeppelin-test-helpers');
 const { expect } = require('chai');
-// TODO use ether from @openzeppelin/test-helpers instead
-const { getBNEth } = require('../utils/getBN');
 
 const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
 
 contract('UNIC test', async ([owner, burner, holder]) => {
-  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+  const startTime = Math.floor(Date.now() / 1000) - 86400;
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
-    this.auction = await Auction.new(this.unic.address, { from: owner });
+    this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
   });
 
@@ -31,12 +25,12 @@ contract('UNIC test', async ([owner, burner, holder]) => {
 
   describe('check startAuction => setStartTime and mint', async () => {
     beforeEach(async () => {
-      const startTime = Math.floor(Date.now() / 1000);
-      await this.auction.startAuction(startTime, { from: owner });
-      expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(getBNEth('2500000'));
-      expect(await this.unic.getStartTime()).to.be.bignumber.equal(startTime);
-    })
-  })
+      expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(new BN('0'));
+      await this.auction.participate({ from: owner, value: 100000 });
+      expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(new BN('2500000'));
+      expect(await this.unic.getLastMintTime()).to.be.bignumber.equal(startTime);
+    });
+  });
 
   describe('check blacklist', async () => {
     it('blacklist positive tests', async () => {
@@ -44,7 +38,7 @@ contract('UNIC test', async ([owner, burner, holder]) => {
       expect(await this.unic.isBlacklisted(holder)).to.equal(true);
       await this.unic.rempoveFromBlacklist(holder, { from: owner });
       expect(await this.unic.isBlacklisted(holder)).to.equal(false);
-    })
+    });
 
     it('blacklist negative tests', async () => {
       await this.unic.addToBlacklist(holder, { from: owner });
@@ -52,6 +46,6 @@ contract('UNIC test', async ([owner, burner, holder]) => {
       await this.unic.rempoveFromBlacklist(holder, { from: owner });
       await expectRevert(this.unic.rempoveFromBlacklist(holder, { from: owner }), 'Not blacklisted');
       await expectRevert.unspecified(this.unic.rempoveFromBlacklist(burner, { from: holder }));
-    })
-  })
+    });
+  });
 });

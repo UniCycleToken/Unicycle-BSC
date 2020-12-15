@@ -13,7 +13,6 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     mapping(address => bool) internal _blacklistedAddresses;
 
     address internal _auctionAddress;
-    uint256 internal _startTime;
 
     modifier onlyAuction() {
         require(_msgSender() == _auctionAddress, "Caller is not auction");
@@ -34,27 +33,19 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         return false;
     }
 
-    function setStartTime(uint256 startTime) external onlyAuction override {
-        _startTime = startTime;
+    function setAuction(address auctionAddress) external override onlyOwner {
+        require(auctionAddress != ZERO_ADDRESS, "Zero address");
+        _auctionAddress = auctionAddress;
     }
 
-    function getStartTime() external override returns (uint256){
-        return _startTime;
-    }
-
-    function mint(uint256 amount) public override onlyAuction {
+    function mint(uint256 amount) external override onlyAuction {
         // require(now > _startTime.add(86400));
         require(balanceOf(_auctionAddress) == 0, "Auction balance must be 0");
         _mint(_auctionAddress, amount);
     }
 
-    function burn(uint256 amount) public override onlyAuction {
+    function burn(uint256 amount) external override onlyAuction {
         _burn(_auctionAddress, amount);
-    }
-
-    function setAuction(address auctionAddress) external override onlyOwner {
-        require(auctionAddress != ZERO_ADDRESS, "Zero address");
-        _auctionAddress = auctionAddress;
     }
 
     function addToBlacklist(address account) public onlyOwner onlyIfNotBlacklisted(account) {
