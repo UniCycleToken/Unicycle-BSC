@@ -135,14 +135,27 @@ contract Auction is Context, Ownable {
     }
 
     function unStake(uint256 stakeTime) external {
-        require(dailyStakedUnic[stakeTime][_msgSender()] > 0, 'Nothing to unstake');
+        require(dailyStakedUnic[stakeTime][_msgSender()] > 0, "Nothing to unstake");
         uint256 i;
         uint256 totalStakeEarnings;
-        for (i = stakeTime; i <= now; i += 86400) {
-            if (dailyTotalParticipatedETH[i] > 0) {
-                uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()].mul(PERCENT_100).div(dailyTotalStakedUnic[i]).mul(100).div(PERCENT_100);
-                uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
-                totalStakeEarnings = totalStakeEarnings.add(stakersETHShare.mul(PERCENT_100).div(100).mul(stakeEarningsPercent).div(PERCENT_100));
+        if (stakeTime.add(86400) < now) {
+            for (i = stakeTime; i <= now && i < stakeTime.add(86400 * 100); i += 86400) {
+                if (dailyTotalParticipatedETH[i] > 0) {
+                    uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
+                        .mul(PERCENT_100)
+                        // .div(dailyTotalStakedUnic[i])
+                        .div(dailyTotalStakedUnic[i] > 0 ? dailyTotalStakedUnic[i].add(stakeTime != i ? dailyTotalStakedUnic[stakeTime] : 0) : dailyTotalStakedUnic[stakeTime])
+                        .mul(100)
+                        .div(PERCENT_100);
+                    uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
+                    totalStakeEarnings = totalStakeEarnings.add(
+                        stakersETHShare
+                            .mul(PERCENT_100)
+                            .div(100)
+                            .mul(stakeEarningsPercent)
+                            .div(PERCENT_100)
+                    );
+                }
             }
         }
         delete dailyStakedUnic[stakeTime][_msgSender()];

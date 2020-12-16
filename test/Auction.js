@@ -76,10 +76,12 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     it('unstake positive', async () => {
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
       await this.auction.unStake(await this.auction.getLastMintTime(), { from: alice });
-      expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('2.15'));
+      // a day has not passed
+      expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
       expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('0'));
       await this.auction.unStake(await this.auction.getLastMintTime(), { from: bob });
-      expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('0.25'));
+      // a day has not passed
+      expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
       expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('0'));
     });
 
