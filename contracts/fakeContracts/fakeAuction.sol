@@ -107,25 +107,24 @@ contract FakeAuction is Context, Ownable {
 
     function unStake(uint256 stakeTime, uint256 callTime) external {
         require(dailyStakedUnic[stakeTime][_msgSender()] > 0, "Nothing to unstake");
+        require(stakeTime.add(86400) < callTime, 'At least 1 day must pass');
         uint256 i;
         uint256 totalStakeEarnings;
-        if (stakeTime.add(86400) < callTime) {
-            for (i = stakeTime; i <= callTime && i < stakeTime.add(86400 * 100); i += 86400) {
-                if (dailyTotalParticipatedETH[i] > 0) {
-                    uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
+        for (i = stakeTime; i <= callTime && i < stakeTime.add(86400 * 100); i += 86400) {
+            if (dailyTotalParticipatedETH[i] > 0) {
+                uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
+                    .mul(PERCENT_100)
+                    .div(dailyTotalStakedUnic[i] > 0 ? dailyTotalStakedUnic[i].add(stakeTime != i ? dailyTotalStakedUnic[stakeTime] : 0) : dailyTotalStakedUnic[stakeTime])
+                    .mul(100)
+                    .div(PERCENT_100);
+                uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
+                totalStakeEarnings = totalStakeEarnings.add(
+                    stakersETHShare
                         .mul(PERCENT_100)
-                        .div(dailyTotalStakedUnic[i] > 0 ? dailyTotalStakedUnic[i].add(stakeTime != i ? dailyTotalStakedUnic[stakeTime] : 0) : dailyTotalStakedUnic[stakeTime])
-                        .mul(100)
-                        .div(PERCENT_100);
-                    uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
-                    totalStakeEarnings = totalStakeEarnings.add(
-                        stakersETHShare
-                            .mul(PERCENT_100)
-                            .div(100)
-                            .mul(stakeEarningsPercent)
-                            .div(PERCENT_100)
-                    );
-                }
+                        .div(100)
+                        .mul(stakeEarningsPercent)
+                        .div(PERCENT_100)
+                );
             }
         }
         test = totalStakeEarnings;
