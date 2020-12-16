@@ -40,7 +40,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
 
     function mint(uint256 amount) external override onlyAuction {
         // require(now > _startTime.add(86400));
-        require(balanceOf(_auctionAddress) == 0, "Auction balance must be 0");
+        // require(balanceOf(_auctionAddress) == 0, "Auction balance must be 0");
         _mint(_auctionAddress, amount);
     }
 

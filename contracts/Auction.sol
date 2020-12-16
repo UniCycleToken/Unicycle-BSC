@@ -127,11 +127,11 @@ contract Auction is Context, Ownable {
         } else {
             stakeTime = getLastMintTime();
         }
-        _unicToken.transferFrom(_msgSender(), address(this), amount);
         dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].add(amount);
         dailyStakedUnic[stakeTime][_msgSender()] = dailyStakedUnic[stakeTime][_msgSender()].add(amount);
         uint256 fivePercentOfStake = amount.div(20);
         // TODO: distribute to LP stakers, just leave them here for now
+        _unicToken.transferFrom(_msgSender(), address(this), amount);
         _unicToken.burn(amount.sub(fivePercentOfStake));
     }
 
