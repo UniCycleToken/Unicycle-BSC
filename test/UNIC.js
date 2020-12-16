@@ -1,7 +1,7 @@
 const {
   BN,
   expectRevert,
-} = require('openzeppelin-test-helpers');
+} = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const UNICToken = artifacts.require('UNICToken');

@@ -66,7 +66,7 @@ contract FakeAuction is Context, Ownable {
         return totalEth;
     }
 
-    function startAuction(uint256 startTime) internal {
+    function startNextRound(uint256 startTime) internal {
         setLastMintTime(startTime);
         _unicToken.mint(DAILY_MINT_CAP);
     }
@@ -75,7 +75,7 @@ contract FakeAuction is Context, Ownable {
         require(msg.value > 0, "Insufficient participation");
         if (getLastMintTime().add(86400) <= callTime) {
             uint256 newLastMintTime = getLastMintTime().add(((callTime.sub(getLastMintTime())).div(86400)).mul(86400));
-            startAuction(newLastMintTime);
+            startNextRound(newLastMintTime);
         }
         uint256 lastMintTime = getLastMintTime();
         dailyTotalParticipatedETH[lastMintTime] = dailyTotalParticipatedETH[lastMintTime].add(msg.value);
@@ -84,7 +84,7 @@ contract FakeAuction is Context, Ownable {
 
     function unlockTokens(uint256 mintTime) public {
         require(dailyParticipatedETH[mintTime][_msgSender()] > 0, "Nothing to unlock");
-        // TODO: check that 1 day has passed
+        // require(mintTime.add(86400) < now);
         uint256 unicSharePayout = DAILY_MINT_CAP.div(dailyTotalParticipatedETH[mintTime]);
         _unicToken.transfer(_msgSender(), dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout));
     }
@@ -110,7 +110,7 @@ contract FakeAuction is Context, Ownable {
         require(dailyStakedUnic[stakeTime][_msgSender()] > 0, "Nothing to unstake");
         uint256 i;
         uint256 totalStakeEarnings;
-        for (i = stakeTime; i <= callTime; i += 86400) {
+        for (i = stakeTime; i <= callTime && i < stakeTime.add(86400 * 100); i += 86400) {
             if (dailyTotalParticipatedETH[i] > 0) {
                 uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
                     .mul(PERCENT_100)

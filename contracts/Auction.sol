@@ -120,9 +120,9 @@ contract Auction is Context, Ownable {
     }
 
     function stake(uint256 amount) external {
-        require(amount > 0, 'Invalid stake amount');
+        require(amount > 0, "Invalid stake amount");
         uint256 stakeTime;
-        if (getLastMintTime().add(86400) < now) {
+        if (getLastMintTime().add(86400) <= now) {
             stakeTime = getLastMintTime().add(((now.sub(getLastMintTime())).div(86400)).mul(86400));
         } else {
             stakeTime = getLastMintTime();
@@ -130,7 +130,6 @@ contract Auction is Context, Ownable {
         dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].add(amount);
         dailyStakedUnic[stakeTime][_msgSender()] = dailyStakedUnic[stakeTime][_msgSender()].add(amount);
         uint256 fivePercentOfStake = amount.div(20);
-        // TODO: distribute to LP stakers, just leave them here for now
         _unicToken.transferFrom(_msgSender(), address(this), amount);
         _unicToken.burn(amount.sub(fivePercentOfStake));
     }

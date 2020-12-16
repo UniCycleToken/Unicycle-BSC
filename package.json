@@ -26,6 +26,7 @@
     "solium": "^1.2.5"
   },
   "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.9",
     "babel-polyfill": "^6.26.0",
     "babel-preset-env": "^1.7.0",
     "babel-register": "^6.26.0",
@@ -44,7 +45,6 @@
     "ethereumjs-testrpc-sc": "^6.5.1-sc.1",
     "karma": "^5.1.0",
     "lodash": "^4.17.19",
-    "openzeppelin-test-helpers": "^0.5.1",
     "solidity-coverage": "^0.7.9",
     "truffle": "^5.1.36",
     "truffle-flattener": "^1.4.4",
