@@ -44,7 +44,6 @@ contract Auction is Context, Ownable {
     IUnicToken internal _unicToken;
 
     uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
-    address public constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
     uint256 public constant PERCENT_100 = 10 ** 18;
 
     AuctionParticipant[] public participants;
@@ -61,7 +60,7 @@ contract Auction is Context, Ownable {
     }
 
     constructor (address unicTokenAddress, uint256 mintTime) public {
-        require(unicTokenAddress != ZERO_ADDRESS, 'ZERO ADDRESS');
+        require(unicTokenAddress != 0x0000000000000000000000000000000000000000, 'ZERO ADDRESS');
         _unicToken = IUnicToken(unicTokenAddress);
         setLastMintTime(mintTime);
     }

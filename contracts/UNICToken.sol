@@ -8,8 +8,6 @@ import "./Interfaces.sol";
 contract UNICToken is IUnicToken, ERC20, Ownable {
     using SafeMath for uint256;
 
-    address constant ZERO_ADDRESS = 0x0000000000000000000000000000000000000000;
-
     mapping(address => bool) internal _blacklistedAddresses;
 
     address internal _auctionAddress;
@@ -34,13 +32,11 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     }
 
     function setAuction(address auctionAddress) external override onlyOwner {
-        require(auctionAddress != ZERO_ADDRESS, "Zero address");
+        require(auctionAddress != 0x0000000000000000000000000000000000000000, "Zero address");
         _auctionAddress = auctionAddress;
     }
 
     function mint(uint256 amount) external override onlyAuction {
-        // require(now > _startTime.add(86400));
-        // require(balanceOf(_auctionAddress) == 0, "Auction balance must be 0");
         _mint(_auctionAddress, amount);
     }
 
