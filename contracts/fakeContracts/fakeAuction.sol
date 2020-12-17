@@ -5,19 +5,29 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../Interfaces.sol";
 
+
 contract FakeAuction is Context, Ownable {
     using SafeMath for uint256;
-    
-    IUnicToken internal _unicToken;
+
+    struct LPStaker {
+        uint256 amountStaked;
+        uint256 lastUnlockTime;
+    }
 
     uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
     uint256 public constant PERCENT_100 = 10**18;
 
     uint256[] public mintTimes;
     mapping(uint256 => mapping(address => uint256)) public dailyStakedUnic;
-    mapping(uint256 => mapping(address => uint256)) public dailyParticipatedETH;
     mapping(uint256 => uint256) public dailyTotalStakedUnic;
+
+    mapping(uint256 => mapping(address => uint256)) public dailyParticipatedETH;
     mapping(uint256 => uint256) public dailyTotalParticipatedETH;
+
+    mapping(uint256 => mapping(address => LPStaker)) LPStakers;
+    mapping(uint256 => uint256) public dailyTotalStakedLP;
+
+    IUnicToken internal _unicToken;
 
     constructor(address unicTokenAddress, uint256 mintTime) public {
         require(unicTokenAddress != 0x0000000000000000000000000000000000000000, "ZERO ADDRESS");
@@ -128,7 +138,22 @@ contract FakeAuction is Context, Ownable {
             }
         }
         test = totalStakeEarnings;
+        // dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].sub(dailyStakedUnic[stakeTime][_msgSender()]);
         delete dailyStakedUnic[stakeTime][_msgSender()];
         _msgSender().transfer(totalStakeEarnings);
+    }
+
+    function stakeLP(uint256 amount, uint256 callTime) external {
+        require(amount > 0, "Invalid stake amount");
+        uint256 stakeTime;
+        if (getLastMintTime().add(86400) <= callTime) {
+            stakeTime = getLastMintTime().add(((callTime.sub(getLastMintTime())).div(86400)).mul(86400));
+        } else {
+            stakeTime = getLastMintTime();
+        }
+        dailyTotalStakedLP[stakeTime] = dailyTotalStakedLP[stakeTime].add(amount);
+        LPStaker memory staker;
+        staker.amountStaked = staker.amountStaked.add(amount);
+        LPStakers[stakeTime][_msgSender()] = staker;
     }
 }

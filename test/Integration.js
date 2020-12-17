@@ -95,7 +95,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       // unstaked 20% of eth staked for 10 days => 10eth - 5%
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('45.5'));
       await this.auction.unStake(startTime + 86400 * 2, startTime + 86400 * 20, { from: alice });
-      // unstaked 20% of eth staked for 10 days => 40eth - 5%
+      // // unstaked 20% of eth staked for 10 days => 40eth - 5%
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('7.5'));
     });
   });

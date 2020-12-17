@@ -45,6 +45,7 @@ contract Auction is Context, Ownable {
 
     uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
     uint256 public constant PERCENT_100 = 10 ** 18;
+    uint256 private constant SECONDS_IN_DAY = 86400;
 
     AuctionParticipant[] public participants;
 
@@ -54,11 +55,6 @@ contract Auction is Context, Ownable {
     mapping(uint256 => uint256) public dailyTotalStakedUnic;
     mapping(uint256 => uint256) public dailyTotalParticipatedETH;
     
-    modifier hasStakes(address account) {
-        require(activeStakersIds[account] > 0, "No stakes");
-        _;
-    }
-
     constructor (address unicTokenAddress, uint256 mintTime) public {
         require(unicTokenAddress != 0x0000000000000000000000000000000000000000, 'ZERO ADDRESS');
         _unicToken = IUnicToken(unicTokenAddress);
@@ -104,8 +100,8 @@ contract Auction is Context, Ownable {
 
     function participate() external payable {
         require(msg.value > 0, 'Insufficient participation');
-        if (getLastMintTime().add(86400) < now) {
-            uint256 newLastMintTime = getLastMintTime().add(((now.sub(getLastMintTime())).div(86400)).mul(86400));
+        if (getLastMintTime().add(SECONDS_IN_DAY) < now) {
+            uint256 newLastMintTime = getLastMintTime().add(((now.sub(getLastMintTime())).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
             startAuction(newLastMintTime);
         }
         dailyTotalParticipatedETH[getLastMintTime()] = dailyTotalParticipatedETH[getLastMintTime()].add(msg.value);
@@ -121,8 +117,8 @@ contract Auction is Context, Ownable {
     function stake(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime;
-        if (getLastMintTime().add(86400) <= now) {
-            stakeTime = getLastMintTime().add(((now.sub(getLastMintTime())).div(86400)).mul(86400));
+        if (getLastMintTime().add(SECONDS_IN_DAY) <= now) {
+            stakeTime = getLastMintTime().add(((now.sub(getLastMintTime())).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
         } else {
             stakeTime = getLastMintTime();
         }
@@ -135,14 +131,13 @@ contract Auction is Context, Ownable {
 
     function unStake(uint256 stakeTime) external {
         require(dailyStakedUnic[stakeTime][_msgSender()] > 0, "Nothing to unstake");
-        require(stakeTime.add(86400) < now, 'At least 1 day must pass');
+        require(stakeTime.add(SECONDS_IN_DAY) < now, 'At least 1 day must pass');
         uint256 i;
         uint256 totalStakeEarnings;
-        for (i = stakeTime; i <= now && i < stakeTime.add(86400 * 100); i += 86400) {
+        for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
             if (dailyTotalParticipatedETH[i] > 0) {
                 uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
                     .mul(PERCENT_100)
-                    // .div(dailyTotalStakedUnic[i])
                     .div(dailyTotalStakedUnic[i] > 0 ? dailyTotalStakedUnic[i].add(stakeTime != i ? dailyTotalStakedUnic[stakeTime] : 0) : dailyTotalStakedUnic[stakeTime])
                     .mul(100)
                     .div(PERCENT_100);
@@ -156,6 +151,7 @@ contract Auction is Context, Ownable {
                 );
             }
         }
+        // dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].sub(dailyStakedUnic[stakeTime][_msgSender()]);
         delete dailyStakedUnic[stakeTime][_msgSender()];
         _msgSender().transfer(totalStakeEarnings);
     }
