@@ -82,11 +82,12 @@ contract FakeAuction is Context, Ownable {
 
     function participate(uint256 callTime) external payable {
         require(msg.value > 0, "Insufficient participation");
-        if (getLastMintTime().add(86400) <= callTime) {
-            uint256 newLastMintTime = getLastMintTime().add(((callTime.sub(getLastMintTime())).div(86400)).mul(86400));
-            startNextRound(newLastMintTime);
-        }
         uint256 lastMintTime = getLastMintTime();
+        if (lastMintTime.add(86400) <= callTime) {
+            uint256 newLastMintTime = lastMintTime.add(((callTime.sub(lastMintTime)).div(86400)).mul(86400));
+            startNextRound(newLastMintTime);
+            lastMintTime = getLastMintTime();
+        }
         dailyTotalParticipatedETH[lastMintTime] = dailyTotalParticipatedETH[lastMintTime].add(msg.value);
         dailyParticipatedETH[lastMintTime][_msgSender()] = dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
     }
@@ -100,12 +101,7 @@ contract FakeAuction is Context, Ownable {
 
     function stake(uint256 amount, uint256 callTime) external {
         require(amount > 0, "Invalid stake amount");
-        uint256 stakeTime;
-        if (getLastMintTime().add(86400) <= callTime) {
-            stakeTime = getLastMintTime().add(((callTime.sub(getLastMintTime())).div(86400)).mul(86400));
-        } else {
-            stakeTime = getLastMintTime();
-        }
+        uint256 stakeTime = getRightStakeTime(callTime);
         dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].add(amount);
         dailyStakedUnic[stakeTime][_msgSender()] = dailyStakedUnic[stakeTime][_msgSender()].add(amount);
         uint256 fivePercentOfStake = amount.div(20);
@@ -145,15 +141,44 @@ contract FakeAuction is Context, Ownable {
 
     function stakeLP(uint256 amount, uint256 callTime) external {
         require(amount > 0, "Invalid stake amount");
-        uint256 stakeTime;
-        if (getLastMintTime().add(86400) <= callTime) {
-            stakeTime = getLastMintTime().add(((callTime.sub(getLastMintTime())).div(86400)).mul(86400));
-        } else {
-            stakeTime = getLastMintTime();
-        }
+        uint256 stakeTime = getRightStakeTime(callTime);
         dailyTotalStakedLP[stakeTime] = dailyTotalStakedLP[stakeTime].add(amount);
         LPStaker memory staker;
         staker.amountStaked = staker.amountStaked.add(amount);
+        staker.lastUnlockTime = stakeTime;
         LPStakers[stakeTime][_msgSender()] = staker;
+    }
+
+    function unlockLPReward(uint256 stakeTime, uint256 callTime) external {
+        // require(dailyTotalStakedLP[stakeTime][_msgSender()] > 0, "Nothing to unlock");
+        LPStaker memory staker = LPStakers[stakeTime][_msgSender()];
+        uint256 i;
+        uint256 totalUnlockReward;
+        for (i = staker.lastUnlockTime; i <= callTime; i += 86400) {
+            if (dailyTotalStakedLP[i] > 0) {
+                uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
+                    .mul(PERCENT_100)
+                    .div(dailyTotalStakedLP[i] > 0 ? dailyTotalStakedLP[i].add(stakeTime != i ? dailyTotalStakedLP[stakeTime] : 0) : dailyTotalStakedLP[stakeTime])
+                    .mul(100)
+                    .div(PERCENT_100);
+                uint256 lpStakersUnicShare = dailyTotalStakedUnic[i].div(20);
+                totalUnlockReward = totalUnlockReward.add(
+                    lpStakersUnicShare
+                        .mul(PERCENT_100)
+                        .div(100)
+                        .mul(lpRewardPercent)
+                        .div(PERCENT_100)
+                );
+            }
+        }
+        staker.lastUnlockTime = getRightStakeTime(callTime);
+        _unicToken.transfer(_msgSender(), totalUnlockReward);
+    }
+
+    function getRightStakeTime(uint256 callTime) private view returns(uint256) {
+        if (getLastMintTime().add(86400) <= callTime) {
+            return getLastMintTime().add(((callTime.sub(getLastMintTime())).div(86400)).mul(86400));
+        }
+        return getLastMintTime();
     }
 }
