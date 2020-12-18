@@ -792,13 +792,15 @@ contract ERC20 is Context, IERC20 {
 
 // File: contracts/Interfaces.sol
 
+/* solium-disable */
 pragma solidity >= 0.6.0 < 0.7.0;
 
-
+ /* solium-disable-next-line */
 interface IUnicToken is IERC20 {
     function mint(uint256 amount) external;
     function burn(uint256 amount) external;
-    function getIsBlackListed(address token) external view returns (bool);
+    function isBlacklisted(address account) view external returns (bool);
+    function setAuction(address account) external;
 }
 
 // File: contracts/UNICToken.sol
@@ -812,66 +814,43 @@ pragma solidity >= 0.6.0 < 0.7.0;
 contract UNICToken is IUnicToken, ERC20, Ownable {
     using SafeMath for uint256;
 
-    uint256 public startTime;
-    uint256 public MINT_CAP_UNIC_CONST = 2500000 * (10 ** 18);
     mapping(address => bool) internal _blacklistedAddresses;
 
     address internal _auctionAddress;
-    address internal _owner;
-    mapping (address => bool) internal _burnerAddresses;
 
-    modifier isBurner() {
-        require(_burnerAddresses[_msgSender()], "Caller is not burner");
+    modifier onlyAuction() {
+        require(_msgSender() == _auctionAddress, "Caller is not auction");
         _;
     }
 
-    modifier isBlacklisted(address account) {
+    modifier onlyIfNotBlacklisted(address account) {
         require(!_blacklistedAddresses[account], "In black list");
         _;
     }
 
-    constructor () public ERC20("UNICToken", "UNIC") {
-        _burnerAddresses[_msgSender()] = true;
-        _owner = _msgSender();
-        startTime = now;
-    }
+    constructor () public ERC20("UNICToken", "UNIC") {}
 
-    function getIsBlackListed(address account) external override view returns (bool) {
+    function isBlacklisted(address account) external view override returns (bool) {
         if (_blacklistedAddresses[account]) {
             return true;
         }
         return false;
     }
 
-    function setAuction(address auctionAddress) external onlyOwner {
+    function setAuction(address auctionAddress) external override onlyOwner {
+        require(auctionAddress != 0x0000000000000000000000000000000000000000, "Zero address");
         _auctionAddress = auctionAddress;
     }
 
-    function isBurnAllowed(address account) external view returns(bool) {
-        return _burnerAddresses[account];
-    }
-
-    function addBurner(address account) external onlyOwner {
-        require(!_burnerAddresses[account], "Already burner");
-        require(account != address(0), "Cant add zero address");
-        _burnerAddresses[account] = true;
-    }
-
-    function removeBurner(address account) external onlyOwner {
-        require(_burnerAddresses[account], "Isnt burner");
-        _burnerAddresses[account] = false;
-    }
-
-    function mint(uint256 amount) public override {
-        require(_msgSender() == _owner || _msgSender() == _auctionAddress, "No rights to mint");
+    function mint(uint256 amount) external override onlyAuction {
         _mint(_auctionAddress, amount);
     }
 
-    function burn(uint256 amount) public isBurner override {
+    function burn(uint256 amount) external override onlyAuction {
         _burn(_auctionAddress, amount);
     }
 
-    function addToBlacklist(address account) public onlyOwner isBlacklisted(account) {
+    function addToBlacklist(address account) public onlyOwner onlyIfNotBlacklisted(account) {
         _blacklistedAddresses[account] = true;
     }
 
@@ -880,5 +859,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         delete _blacklistedAddresses[account];
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override isBlacklisted(from) {}
+    function _beforeTokenTransfer(address from, address, uint256) internal override onlyIfNotBlacklisted(from) {
+        // solium-disable-previous-line no-empty-blocks
+    }
 }

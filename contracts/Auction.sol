@@ -19,8 +19,11 @@ contract Auction is Context, Ownable {
     uint256 private constant SECONDS_IN_DAY = 86400;
 
     uint256[] public mintTimes;
+    uint256[] public stakeTimes;
+
     mapping(uint256 => mapping(address => uint256)) public dailyStakedUnic;
-    mapping(uint256 => uint256) public dailyTotalStakedUnic;
+
+    mapping(uint256 => uint256) public accumulativeUnicStake;
 
     mapping(uint256 => mapping(address => uint256)) public dailyParticipatedETH;
     mapping(uint256 => uint256) public dailyTotalParticipatedETH;
@@ -37,7 +40,21 @@ contract Auction is Context, Ownable {
     }
 
     function getLastMintTime() public view returns (uint256) {
-        return mintTimes[mintTimes.length - 1];
+        if (mintTimes.length > 0) {
+            return mintTimes[mintTimes.length - 1];
+        }
+        return 0;
+    }
+
+    function getLastStakeTime() public view returns (uint256) {
+        if (stakeTimes.length > 0) {
+            return stakeTimes[stakeTimes.length - 1];
+        }
+        return 0;
+    }
+
+    function getAccumulative() public view returns (uint256) {
+        return accumulativeUnicStake[getLastStakeTime()];
     }
 
     function getMintTimesLength() public view returns (uint256) {
@@ -50,10 +67,6 @@ contract Auction is Context, Ownable {
 
     function getParticipatedETHAmount(uint256 mintTime) public view returns (uint256) {
         return dailyParticipatedETH[mintTime][_msgSender()];
-    }
-
-    function getDailyTotalStakedUnic(uint256 stakeTime) external view returns (uint256) {
-        return dailyTotalStakedUnic[stakeTime];
     }
 
     function getStakedUnic(uint256 stakeTime) external view returns (uint256) {
@@ -77,18 +90,23 @@ contract Auction is Context, Ownable {
     }
 
     function canUnlockTokens(uint256 mintTime) external view returns (uint256) {
-        uint256 unicSharePayout = DAILY_MINT_CAP.div(dailyTotalParticipatedETH[mintTime]);
-        return dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout);
+        if (dailyTotalParticipatedETH[mintTime] > 0) {
+            uint256 unicSharePayout = DAILY_MINT_CAP.div(dailyTotalParticipatedETH[mintTime]);
+            return dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout);
+        }
+        return 0;
     }
 
     function canUnStake(uint256 stakeTime) external view returns (uint256) {
         uint256 i;
         uint256 totalStakeEarnings;
+        uint256 accumulativeDailyTotalStakedUnic;
         for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
             if (dailyTotalParticipatedETH[i] > 0) {
+                accumulativeDailyTotalStakedUnic = accumulativeUnicStake[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeUnicStake[i];
                 uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
                     .mul(PERCENT_100)
-                    .div(dailyTotalStakedUnic[i] > 0 ? dailyTotalStakedUnic[i].add(stakeTime != i ? dailyTotalStakedUnic[stakeTime] : 0) : dailyTotalStakedUnic[stakeTime])
+                    .div(accumulativeDailyTotalStakedUnic)
                     .mul(100)
                     .div(PERCENT_100);
                 uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
@@ -155,8 +173,13 @@ contract Auction is Context, Ownable {
     function stake(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = getRightStakeTime();
-        dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].add(amount);
+        uint256 lastStakeTime = getLastStakeTime();
+        if (stakeTime > getLastStakeTime()) {
+            accumulativeUnicStake[stakeTime] = accumulativeUnicStake[stakeTime].add(accumulativeUnicStake[getLastStakeTime()]);
+        }
+        accumulativeUnicStake[stakeTime] = accumulativeUnicStake[stakeTime].add(amount);
         dailyStakedUnic[stakeTime][_msgSender()] = dailyStakedUnic[stakeTime][_msgSender()].add(amount);
+        stakeTimes.push(stakeTime);
         uint256 fivePercentOfStake = amount.div(20);
         _unicToken.transferFrom(_msgSender(), address(this), amount);
         _unicToken.burn(amount.sub(fivePercentOfStake));
@@ -167,11 +190,13 @@ contract Auction is Context, Ownable {
         require(stakeTime.add(SECONDS_IN_DAY) < now, 'At least 1 day must pass');
         uint256 i;
         uint256 totalStakeEarnings;
+        uint256 accumulativeDailyTotalStakedUnic;
         for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
             if (dailyTotalParticipatedETH[i] > 0) {
+                accumulativeDailyTotalStakedUnic = accumulativeUnicStake[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeUnicStake[i];
                 uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
                     .mul(PERCENT_100)
-                    .div(dailyTotalStakedUnic[i] > 0 ? dailyTotalStakedUnic[i].add(stakeTime != i ? dailyTotalStakedUnic[stakeTime] : 0) : dailyTotalStakedUnic[stakeTime])
+                    .div(accumulativeDailyTotalStakedUnic)
                     .mul(100)
                     .div(PERCENT_100);
                 uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
@@ -184,7 +209,8 @@ contract Auction is Context, Ownable {
                 );
             }
         }
-        // dailyTotalStakedUnic[stakeTime] = dailyTotalStakedUnic[stakeTime].sub(dailyStakedUnic[stakeTime][_msgSender()]);
+        uint256 lastStakeTime = getLastStakeTime();
+        accumulativeUnicStake[lastStakeTime] = accumulativeUnicStake[lastStakeTime].sub(dailyStakedUnic[stakeTime][_msgSender()]);
         delete dailyStakedUnic[stakeTime][_msgSender()];
         _msgSender().transfer(totalStakeEarnings);
     }
@@ -225,9 +251,11 @@ contract Auction is Context, Ownable {
     }
 
     function getRightStakeTime() private view returns(uint256) {
-        if (getLastMintTime().add(SECONDS_IN_DAY) <= now) {
-            return getLastMintTime().add(((now.sub(getLastMintTime())).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
+        uint256 lastMintTime = getLastMintTime();
+        if (lastMintTime.add(SECONDS_IN_DAY) <= now) {
+            uint256 newStakeTime = lastMintTime.add(((now.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
+            return newStakeTime;
         }
-        return getLastMintTime();
+        return lastMintTime;
     }
 }
