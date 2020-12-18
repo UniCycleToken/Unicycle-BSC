@@ -11,7 +11,7 @@ contract FakeAuction is Context, Ownable {
 
     struct LPStaker {
         uint256 amountStaked;
-        uint256 lastUnlockTime;
+        uint256 lastRewardUnlockTime;
     }
 
     uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
@@ -29,19 +29,13 @@ contract FakeAuction is Context, Ownable {
     mapping(uint256 => uint256) public dailyTotalStakedLP;
 
     IUnicToken internal _unicToken;
+    ERC20 internal _lpToken;
 
-    constructor(address unicTokenAddress, uint256 mintTime) public {
+    constructor(address unicTokenAddress, address lpTokenAddress, uint256 mintTime) public {
         require(unicTokenAddress != 0x0000000000000000000000000000000000000000, "ZERO ADDRESS");
         _unicToken = IUnicToken(unicTokenAddress);
+        _lpToken = ERC20(lpTokenAddress);
         setLastMintTime(mintTime);
-    }
-
-    function getMintTimestamp(uint256 index) external view returns (uint256) {
-        return mintTimes[index];
-    }
-
-    function canUnlockTokens(uint256 mintTime) external view returns (uint256) {
-        return dailyParticipatedETH[mintTime][_msgSender()];
     }
 
     function getLastMintTime() public view returns (uint256) {
@@ -66,6 +60,18 @@ contract FakeAuction is Context, Ownable {
 
     function getStakedUnic(uint256 stakeTime) external view returns (uint256) {
         return dailyStakedUnic[stakeTime][_msgSender()];
+    }
+
+    function getStakedLP(uint256 stakeTime) external view returns (uint256) {
+        return LPStakers[stakeTime][_msgSender()].amountStaked;
+    }
+
+    function getDailyTotalStakedLP(uint256 stakeTime) external view returns (uint256) {
+        return dailyTotalStakedLP[stakeTime];
+    }
+
+    function getLastLPRewardUnlockTime(uint256 stakeTime) external view returns (uint256) {
+        return LPStakers[stakeTime][_msgSender()].lastRewardUnlockTime;
     }
 
     function getTotalParticipateAmount() external view returns (uint256) {
@@ -144,27 +150,26 @@ contract FakeAuction is Context, Ownable {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = getRightStakeTime(callTime);
         dailyTotalStakedLP[stakeTime] = dailyTotalStakedLP[stakeTime].add(amount);
-        LPStaker memory staker;
+        LPStaker storage staker = LPStakers[stakeTime][_msgSender()];
         staker.amountStaked = staker.amountStaked.add(amount);
-        staker.lastUnlockTime = stakeTime;
-        LPStakers[stakeTime][_msgSender()] = staker;
+        staker.lastRewardUnlockTime = stakeTime;
     }
 
     function unlockLPReward(uint256 stakeTime, uint256 callTime) external {
-        // require(dailyTotalStakedLP[stakeTime][_msgSender()] > 0, "Nothing to unlock");
+        require(LPStakers[stakeTime][_msgSender()].amountStaked > 0, "Nothing to unlock");
         LPStaker memory staker = LPStakers[stakeTime][_msgSender()];
         uint256 i;
         uint256 totalUnlockReward;
-        for (i = staker.lastUnlockTime; i <= callTime; i += SECONDS_IN_DAY) {
-            if (dailyTotalStakedLP[i] > 0) {
+        for (i = staker.lastRewardUnlockTime; i <= callTime; i += SECONDS_IN_DAY) {
+            if (dailyTotalParticipatedETH[i] > 0) {
                 uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
                     .mul(PERCENT_100)
                     .div(dailyTotalStakedLP[i] > 0 ? dailyTotalStakedLP[i].add(stakeTime != i ? dailyTotalStakedLP[stakeTime] : 0) : dailyTotalStakedLP[stakeTime])
                     .mul(100)
                     .div(PERCENT_100);
-                uint256 lpStakersUnicShare = dailyTotalStakedUnic[i].div(20);
                 totalUnlockReward = totalUnlockReward.add(
-                    lpStakersUnicShare
+                    DAILY_MINT_CAP
+                        .div(20)
                         .mul(PERCENT_100)
                         .div(100)
                         .mul(lpRewardPercent)
@@ -172,7 +177,7 @@ contract FakeAuction is Context, Ownable {
                 );
             }
         }
-        staker.lastUnlockTime = getRightStakeTime(callTime);
+        staker.lastRewardUnlockTime = getRightStakeTime(callTime);
         _unicToken.transfer(_msgSender(), totalUnlockReward);
     }
 

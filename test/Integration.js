@@ -1,15 +1,21 @@
-const { BN, ether, expectRevert } = require('@openzeppelin/test-helpers');
+const { BN, ether } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('FakeAuction');
+const WETH = artifacts.require('WETH9');
+const UniswapV2Factory = artifacts.require('UniswapV2Factory');
 
 contract('AUCTION test', async ([owner, alice, bob]) => {
   const startTime = Math.floor(Date.now() / 1000) - 86400 * 20;
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
-    this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
+    this.weth = await WETH.new({ from: owner });
+    this.factory = await UniswapV2Factory.new(owner, { from: owner });
+    await this.factory.createPair(this.weth.address, this.unic.address);
+    const pairAddress = await this.factory.getPair(this.weth.address, this.unic.address);
+    this.auction = await Auction.new(this.unic.address, pairAddress, startTime, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
   });
@@ -66,7 +72,11 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
   describe('check stake bonus for n days', async () => {
     beforeEach(async () => {
       this.unic = await UNICToken.new({ from: owner });
-      this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
+      this.weth = await WETH.new({ from: owner });
+      this.factory = await UniswapV2Factory.new(owner, { from: owner });
+      await this.factory.createPair(this.weth.address, this.unic.address);
+      const pairAddress = await this.factory.getPair(this.weth.address, this.unic.address);
+      this.auction = await Auction.new(this.unic.address, pairAddress, startTime, { from: owner });
       await this.unic.setAuction(this.auction.address, { from: owner });
       expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
       await this.auction.participate(startTime + 86400, { from: owner, value: ether('1') });
@@ -95,7 +105,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       // unstaked 20% of eth staked for 10 days => 10eth - 5%
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('45.5'));
       await this.auction.unStake(startTime + 86400 * 2, startTime + 86400 * 20, { from: alice });
-      // // unstaked 20% of eth staked for 10 days => 40eth - 5%
+      // unstaked 20% of eth staked for 10 days => 40eth - 5%
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('7.5'));
     });
   });

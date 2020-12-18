@@ -3,13 +3,19 @@ const { expect } = require('chai');
 
 const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
+const WETH = artifacts.require('WETH9');
+const UniswapV2Factory = artifacts.require('UniswapV2Factory');
 
 contract('AUCTION test', async ([owner, alice, bob]) => {
   const startTime = Math.floor(Date.now() / 1000) - 86400;
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
-    this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
+    this.weth = await WETH.new({ from: owner });
+    this.factory = await UniswapV2Factory.new(owner, { from: owner });
+    await this.factory.createPair(this.weth.address, this.unic.address);
+    const pairAddress = await this.factory.getPair(this.weth.address, this.unic.address);
+    this.auction = await Auction.new(this.unic.address, pairAddress, startTime, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
   });
 
