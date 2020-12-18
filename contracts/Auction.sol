@@ -76,6 +76,58 @@ contract Auction is Context, Ownable {
         return totalEth;
     }
 
+    function canUnlockTokens(uint256 mintTime) external view returns (uint256) {
+        uint256 unicSharePayout = DAILY_MINT_CAP.div(dailyTotalParticipatedETH[mintTime]);
+        return dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout);
+    }
+
+    function canUnStake(uint256 stakeTime) external view returns (uint256) {
+        uint256 i;
+        uint256 totalStakeEarnings;
+        for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
+            if (dailyTotalParticipatedETH[i] > 0) {
+                uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
+                    .mul(PERCENT_100)
+                    .div(dailyTotalStakedUnic[i] > 0 ? dailyTotalStakedUnic[i].add(stakeTime != i ? dailyTotalStakedUnic[stakeTime] : 0) : dailyTotalStakedUnic[stakeTime])
+                    .mul(100)
+                    .div(PERCENT_100);
+                uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
+                totalStakeEarnings = totalStakeEarnings.add(
+                    stakersETHShare
+                        .mul(PERCENT_100)
+                        .div(100)
+                        .mul(stakeEarningsPercent)
+                        .div(PERCENT_100)
+                );
+            }
+        }
+        return totalStakeEarnings;
+    }
+
+    function canUnlockLPReward(uint256 stakeTime) external view returns (uint256) {
+        LPStaker memory staker = LPStakers[stakeTime][_msgSender()];
+        uint256 i;
+        uint256 totalUnlockReward;
+        for (i = staker.lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
+            if (dailyTotalParticipatedETH[i] > 0) {
+                uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
+                    .mul(PERCENT_100)
+                    .div(dailyTotalStakedLP[i] > 0 ? dailyTotalStakedLP[i].add(stakeTime != i ? dailyTotalStakedLP[stakeTime] : 0) : dailyTotalStakedLP[stakeTime])
+                    .mul(100)
+                    .div(PERCENT_100);
+                totalUnlockReward = totalUnlockReward.add(
+                    DAILY_MINT_CAP
+                        .div(20)
+                        .mul(PERCENT_100)
+                        .div(100)
+                        .mul(lpRewardPercent)
+                        .div(PERCENT_100)
+                );
+            }
+        }
+        return totalUnlockReward;
+    }
+
     function startNextRound(uint256 startTime) internal {
         setLastMintTime(startTime);
         _unicToken.mint(DAILY_MINT_CAP);

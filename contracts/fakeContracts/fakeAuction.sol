@@ -97,9 +97,9 @@ contract FakeAuction is Context, Ownable {
         dailyParticipatedETH[lastMintTime][_msgSender()] = dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
     }
 
-    function unlockTokens(uint256 mintTime) public {
+    function unlockTokens(uint256 mintTime, uint256 callTime) public {
         require(dailyParticipatedETH[mintTime][_msgSender()] > 0, "Nothing to unlock");
-        // require(mintTime.add(SECONDS_IN_DAY) < now);
+        require(mintTime.add(SECONDS_IN_DAY) <= callTime);
         uint256 unicSharePayout = DAILY_MINT_CAP.div(dailyTotalParticipatedETH[mintTime]);
         _unicToken.transfer(_msgSender(), dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout));
     }
