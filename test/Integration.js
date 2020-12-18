@@ -3,11 +3,9 @@ const { expect } = require('chai');
 
 const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
-const WETH = artifacts.require('WETH9');
-const UniswapV2Factory = artifacts.require('UniswapV2Factory');
 
 contract('AUCTION test', async ([owner, alice, bob]) => {
-  let startTime = Math.floor(Date.now() / 1000);// - 86400 * 20;
+  const startTime = Math.floor(Date.now() / 1000);
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
@@ -18,9 +16,6 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
 
   describe('check particpate and unlock after n day pause', async () => {
     it('N days', async () => {
-      // const startTime = (await this.auction.getLastMintTime()).toNumber();
-      // 1 and 2 days pause
-      // console.log(startTime);
       await time.increase(time.duration.days(2)); //startTime + 86400 * 2, 
       await this.auction.participate({ from: alice, value: ether('1') });
       // console.log((await time.latest()).toString(10));
@@ -133,6 +128,53 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
   //   });
   //   it('N days', async () => {
 
+  //   });
+  // });
+  // describe('check stake bonus for n days when another staker is added', async () => {
+  //   beforeEach(async () => {
+  //     this.unic = await UNICToken.new({ from: owner });
+  //     this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
+  //     await this.unic.setAuction(this.auction.address, { from: owner });
+  //     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
+  //     await this.auction.participate(startTime + 86400, { from: owner, value: ether('1') });
+  //     await this.auction.participate(startTime + 86400, { from: alice, value: ether('1') });
+  //     await this.auction.participate(startTime + 86400, { from: bob, value: ether('3') });
+  //     await this.auction.unlockTokens(startTime + 86400, startTime + 86400 * 2, { from: owner });
+  //     await this.auction.unlockTokens(startTime + 86400, startTime + 86400 * 2, { from: alice });
+  //     await this.auction.unlockTokens(startTime + 86400, startTime + 86400 * 2, { from: bob });
+  //     expect(await this.unic.balanceOf(owner)).to.be.bignumber.equal(ether('500000'));
+  //     expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('500000'));
+  //     expect(await this.unic.balanceOf(bob)).to.be.bignumber.equal(ether('1500000'));
+  //     await this.unic.approve(this.auction.address, ether('500000'), { from: owner });
+  //     await this.unic.approve(this.auction.address, ether('500000'), { from: alice });
+  //     await this.unic.approve(this.auction.address, ether('1500000'), { from: bob });
+  //   });
+  //   it('N days', async () => {
+  //     await this.auction.stake(ether('500000'), startTime + 86400 * 2, { from: owner });
+  //     await this.auction.stake(ether('500000'), startTime + 86400 * 2, { from: alice });
+  //     expect(await this.auction.getStakedUnic(startTime + 86400 * 2, { from: owner })).to.be.bignumber.equal(ether('500000'));
+  //     expect(await this.auction.getStakedUnic(startTime + 86400 * 2, { from: alice })).to.be.bignumber.equal(ether('500000'));
+  //     // 5% of staked 1 000 000
+  //     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('50000'));
+  //     for (let i = 3; i < 8; i += 1) {
+  //       // eslint-disable-next-line no-await-in-loop
+  //       await this.auction.participate(startTime + 86400 * i, { from: owner, value: ether('5') });
+  //     }
+  //     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('12550000'));
+  //     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('30'));
+  //     // half of what participated ETH - 5%
+  //     expect(await this.auction.canUnStake(startTime + 86400 * 2, { from: owner })).to.be.bignumber.equal(ether('11.875'));
+  //     expect(await this.auction.canUnStake(startTime + 86400 * 2, { from: alice })).to.be.bignumber.equal(ether('11.875'));
+  //     await this.auction.stake(ether('1500000'), startTime + 86400 * 9, { from: bob });
+  //     for (let i = 10; i < 15; i += 1) {
+  //       // eslint-disable-next-line no-await-in-loop
+  //       await this.auction.participate(startTime + 86400 * i, { from: owner, value: ether('5') });
+  //     }
+  //     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25125000'));
+  //     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('55'));
+  //     expect(await this.auction.canUnStake(startTime + 86400 * 2, { from: owner })).to.be.bignumber.equal(ether('16.625'));
+  //     expect(await this.auction.canUnStake(startTime + 86400 * 2, { from: alice })).to.be.bignumber.equal(ether('16.625'));
+  //     // expect(await this.auction.canUnStake(startTime + 86400 * 9, { from: bob })).to.be.bignumber.equal(ether('14.25'));
   //   });
   // });
 });
