@@ -19,8 +19,7 @@ contract('LP related test', async ([owner, alice, bob]) => {
     this.weth = await WETH.new({ from: owner });
     this.factory = await UniswapV2Factory.new(owner, { from: owner });
     await this.factory.createPair(this.weth.address, this.unic.address);
-    const pairAddress = await this.factory.getPair(this.weth.address, this.unic.address);
-    this.auction = await Auction.new(this.unic.address, pairAddress, startTime, { from: owner });
+    this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
     this.router = await UniswapV2Router02.new(this.factory.address, this.weth.address, { from: owner });
 
@@ -48,7 +47,9 @@ contract('LP related test', async ([owner, alice, bob]) => {
     this.lpToken = await UniswapV2Pair.at(lpTokenAddress);
     await this.lpToken.approve(this.router.address, ether('10'), { from: owner });
     await this.router.removeLiquidity(this.weth.address, this.unic.address, ether('1'), 0, 0, owner, blocktime + 60, { from: owner });
+    expect(await this.unic.isBlacklisted(lpTokenAddress)).to.equal(false);
     await this.unic.addToBlacklist(lpTokenAddress);
+    expect(await this.unic.isBlacklisted(lpTokenAddress)).to.equal(true);
     await this.router.addLiquidity(this.weth.address, this.unic.address, ether('10'), ether('10'), 0, 0, owner, blocktime + 90, { from: owner });
     await expectRevert(this.router.removeLiquidity(this.weth.address, this.unic.address, ether('1'), 0, 0, owner, blocktime + 120, { from: owner }), 'UniswapV2: TRANSFER_FAILED');
     await this.unic.rempoveFromBlacklist(lpTokenAddress);
@@ -64,13 +65,13 @@ contract('LP related test', async ([owner, alice, bob]) => {
     await this.lpToken.approve(this.auction.address, ether('10'), { from: owner });
     await this.lpToken.approve(this.auction.address, ether('10'), { from: alice });
     await this.unic.addToBlacklist(lpTokenAddress);
-    await this.auction.stakeLP(ether('0.5'), startTime + 86400 * 3, { from: owner });
+    await this.auction.stakeLP(lpTokenAddress, ether('0.5'), startTime + 86400 * 3, { from: owner });
     expect(await this.auction.getDailyTotalStakedLP(startTime + 86400 * 3)).to.be.bignumber.equal(ether('0.5'));
     expect(await this.auction.getStakedLP(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('0.5'));
-    await this.auction.stakeLP(ether('0.5'), startTime + 86400 * 3, { from: owner });
+    await this.auction.stakeLP(lpTokenAddress, ether('0.5'), startTime + 86400 * 3, { from: owner });
     expect(await this.auction.getDailyTotalStakedLP(startTime + 86400 * 3)).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getStakedLP(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('1'));
-    await this.auction.stakeLP(ether('4'), startTime + 86400 * 3, { from: alice });
+    await this.auction.stakeLP(lpTokenAddress, ether('4'), startTime + 86400 * 3, { from: alice });
     expect(await this.auction.getDailyTotalStakedLP(startTime + 86400 * 3)).to.be.bignumber.equal(ether('5'));
     expect(await this.auction.getStakedLP(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('4'));
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));

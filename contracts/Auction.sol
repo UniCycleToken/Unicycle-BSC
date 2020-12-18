@@ -29,12 +29,10 @@ contract Auction is Context, Ownable {
     mapping(uint256 => uint256) public dailyTotalStakedLP;
 
     IUnicToken internal _unicToken;
-    ERC20 internal _lpToken;
 
-    constructor(address unicTokenAddress, address lpTokenAddress, uint256 mintTime) public {
+    constructor(address unicTokenAddress, uint256 mintTime) public {
         require(unicTokenAddress != 0x0000000000000000000000000000000000000000, "ZERO ADDRESS");
         _unicToken = IUnicToken(unicTokenAddress);
-        _lpToken = ERC20(lpTokenAddress);
         setLastMintTime(mintTime);
     }
 

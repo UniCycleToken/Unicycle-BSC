@@ -11,11 +11,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
-    this.weth = await WETH.new({ from: owner });
-    this.factory = await UniswapV2Factory.new(owner, { from: owner });
-    await this.factory.createPair(this.weth.address, this.unic.address);
-    const pairAddress = await this.factory.getPair(this.weth.address, this.unic.address);
-    this.auction = await Auction.new(this.unic.address, pairAddress, startTime, { from: owner });
+    this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
   });
@@ -72,11 +68,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
   describe('check stake bonus for n days', async () => {
     beforeEach(async () => {
       this.unic = await UNICToken.new({ from: owner });
-      this.weth = await WETH.new({ from: owner });
-      this.factory = await UniswapV2Factory.new(owner, { from: owner });
-      await this.factory.createPair(this.weth.address, this.unic.address);
-      const pairAddress = await this.factory.getPair(this.weth.address, this.unic.address);
-      this.auction = await Auction.new(this.unic.address, pairAddress, startTime, { from: owner });
+      this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
       await this.unic.setAuction(this.auction.address, { from: owner });
       expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
       await this.auction.participate(startTime + 86400, { from: owner, value: ether('1') });

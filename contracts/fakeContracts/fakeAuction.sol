@@ -29,12 +29,10 @@ contract FakeAuction is Context, Ownable {
     mapping(uint256 => uint256) public dailyTotalStakedLP;
 
     IUnicToken internal _unicToken;
-    ERC20 internal _lpToken;
 
-    constructor(address unicTokenAddress, address lpTokenAddress, uint256 mintTime) public {
+    constructor(address unicTokenAddress, uint256 mintTime) public {
         require(unicTokenAddress != 0x0000000000000000000000000000000000000000, "ZERO ADDRESS");
         _unicToken = IUnicToken(unicTokenAddress);
-        _lpToken = ERC20(lpTokenAddress);
         setLastMintTime(mintTime);
     }
 
@@ -146,13 +144,15 @@ contract FakeAuction is Context, Ownable {
         _msgSender().transfer(totalStakeEarnings);
     }
 
-    function stakeLP(uint256 amount, uint256 callTime) external {
+    function stakeLP(address token, uint256 amount, uint256 callTime) external {
+        require(_unicToken.isBlacklisted(token), 'Token is not supported');
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = getRightStakeTime(callTime);
         dailyTotalStakedLP[stakeTime] = dailyTotalStakedLP[stakeTime].add(amount);
         LPStaker storage staker = LPStakers[stakeTime][_msgSender()];
         staker.amountStaked = staker.amountStaked.add(amount);
         staker.lastRewardUnlockTime = stakeTime;
+        ERC20(token).transferFrom(_msgSender(), address(this), amount);
     }
 
     function unlockLPReward(uint256 stakeTime, uint256 callTime) external {
