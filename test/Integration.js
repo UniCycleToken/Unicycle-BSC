@@ -84,12 +84,11 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     await this.unic.approve(this.auction.address, ether('500000'), { from: owner });
     await this.unic.approve(this.auction.address, ether('500000'), { from: alice });
     await this.unic.approve(this.auction.address, ether('1500000'), { from: bob });
-    expect(await this.auction.getAccumulative()).to.be.bignumber.equal(ether('0'));
+    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('0'));
     await this.auction.stake(ether('500000'), { from: owner });
-    expect(await this.auction.getAccumulative()).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('500000'));
     await this.auction.stake(ether('500000'), { from: alice });
-    expect(await this.auction.getAccumulative()).to.be.bignumber.equal(ether('1000000'));
-    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('1000000'));
     expect(await this.auction.getStakedUnic(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('500000'));
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('50000'));
     for (let i = 0; i < 5; i += 1) {
@@ -103,7 +102,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('11.875'));
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('11.875'));
     await this.auction.stake(ether('1500000'), { from: bob });
-    expect(await this.auction.getAccumulative()).to.be.bignumber.equal(ether('2500000'));
+    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('2500000'));
     for (let i = 0; i < 5; i += 1) {
       // eslint-disable-next-line no-await-in-loop
       await this.auction.participate({ from: owner, value: ether('5') });
@@ -116,6 +115,13 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('16.625'));
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('16.625'));
     expect(await this.auction.canUnStake(startTime + 86400 * 8, { from: bob })).to.be.bignumber.equal(ether('14.25'));
+    await this.auction.unStake(startTime + 86400 * 3, { from: owner });
+    await this.auction.unStake(startTime + 86400 * 3, { from: alice });
+    console.log((await web3.eth.getBalance(this.auction.address)).toString());
+    // expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('21.75'));
+    // await this.auction.unStake(startTime + 86400 * 8, { from: bob });
+    // await this.auction.unStake(startTime + 86400 * 8, { from: bob });
+    // await expectRevert()
   });
 
   // describe('check stake bonus for n days when another staker is added', async () => {

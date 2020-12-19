@@ -59,7 +59,6 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     });
 
     it('stake positive', async () => {
-      expect(await this.auction.getDailyTotalStakedUnic(await this.auction.getLastMintTime())).to.be.bignumber.equal(ether('500000'));
       expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('300000'));
       expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('200000'));
       expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('200000'));
@@ -72,7 +71,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       await expectRevert(this.auction.stake(0, { from: alice }), 'Invalid stake amount');
     });
 
-    it('unstake positive', async () => {
+    it('unstake', async () => {
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
       await expectRevert(this.auction.unStake(await this.auction.getLastMintTime(), { from: alice }), 'At least 1 day must pass');
       // a day has not passed

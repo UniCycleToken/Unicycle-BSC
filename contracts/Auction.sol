@@ -20,16 +20,17 @@ contract Auction is Context, Ownable {
 
     uint256[] public mintTimes;
     uint256[] public stakeTimes;
+    uint256[] public lpStakeTimes;
 
     mapping(uint256 => mapping(address => uint256)) public dailyStakedUnic;
-
-    mapping(uint256 => uint256) public accumulativeUnicStake;
+    mapping(uint256 => uint256) public accumulativeStakedUnic;
 
     mapping(uint256 => mapping(address => uint256)) public dailyParticipatedETH;
     mapping(uint256 => uint256) public dailyTotalParticipatedETH;
 
     mapping(uint256 => mapping(address => LPStaker)) LPStakers;
-    mapping(uint256 => uint256) public dailyTotalStakedLP;
+    mapping(uint256 => uint256) public accumulativeStakedLP;
+   
 
     IUnicToken internal _unicToken;
 
@@ -53,8 +54,23 @@ contract Auction is Context, Ownable {
         return 0;
     }
 
-    function getAccumulative() public view returns (uint256) {
-        return accumulativeUnicStake[getLastStakeTime()];
+    function getLastLPStakeTime() public view returns (uint256) {
+        if (lpStakeTimes.length > 0) {
+            return lpStakeTimes[lpStakeTimes.length - 1];
+        }
+        return 0;
+    }
+
+    function getLastLpUnlockTime(uint256 stakeTime) external view returns (uint256) {
+        return LPStakers[stakeTime][_msgSender()].lastUnlockTime;
+    }
+
+    function getAccumulativeUnic() public view returns (uint256) {
+        return accumulativeStakedUnic[getLastStakeTime()];
+    }
+
+    function getAccumulativeLP() public view returns (uint256) {
+        return accumulativeStakedLP[getLastLPStakeTime()];
     }
 
     function getMintTimesLength() public view returns (uint256) {
@@ -78,7 +94,7 @@ contract Auction is Context, Ownable {
     }
 
     function getDailyTotalStakedLP(uint256 stakeTime) external view returns (uint256) {
-        return dailyTotalStakedLP[stakeTime];
+        return accumulativeStakedLP[stakeTime];
     }
 
     function getTotalParticipateAmount() external view returns (uint256) {
@@ -98,52 +114,59 @@ contract Auction is Context, Ownable {
     }
 
     function canUnStake(uint256 stakeTime) external view returns (uint256) {
-        uint256 i;
-        uint256 totalStakeEarnings;
-        uint256 accumulativeDailyTotalStakedUnic;
-        for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
-            if (dailyTotalParticipatedETH[i] > 0) {
-                accumulativeDailyTotalStakedUnic = accumulativeUnicStake[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeUnicStake[i];
-                uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
-                    .mul(PERCENT_100)
-                    .div(accumulativeDailyTotalStakedUnic)
-                    .mul(100)
-                    .div(PERCENT_100);
-                uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
-                totalStakeEarnings = totalStakeEarnings.add(
-                    stakersETHShare
+        if (dailyStakedUnic[stakeTime][_msgSender()] > 0 && stakeTime.add(SECONDS_IN_DAY) < now) {
+            uint256 totalStakeEarnings;
+            uint256 accumulativeDailyTotalStakedUnic;
+            for (uint256 i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
+                if (dailyTotalParticipatedETH[i] > 0) {
+                    accumulativeDailyTotalStakedUnic = accumulativeStakedUnic[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeStakedUnic[i];
+                    uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
                         .mul(PERCENT_100)
-                        .div(100)
-                        .mul(stakeEarningsPercent)
-                        .div(PERCENT_100)
-                );
+                        .div(accumulativeDailyTotalStakedUnic)
+                        .mul(100)
+                        .div(PERCENT_100);
+                    // uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
+                    totalStakeEarnings = totalStakeEarnings.add(
+                        dailyTotalParticipatedETH[i]
+                            .mul(PERCENT_100)
+                            .div(100)
+                            .mul(stakeEarningsPercent)
+                            .div(PERCENT_100)
+                    );
+                }
             }
+            return totalStakeEarnings - totalStakeEarnings.div(20);
         }
-        return totalStakeEarnings;
+        return 0;
     }
 
     function canUnlockLPReward(uint256 stakeTime) external view returns (uint256) {
-        LPStaker memory staker = LPStakers[stakeTime][_msgSender()];
-        uint256 i;
-        uint256 totalUnlockReward;
-        for (i = staker.lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
-            if (dailyTotalParticipatedETH[i] > 0) {
-                uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
-                    .mul(PERCENT_100)
-                    .div(dailyTotalStakedLP[i] > 0 ? dailyTotalStakedLP[i].add(stakeTime != i ? dailyTotalStakedLP[stakeTime] : 0) : dailyTotalStakedLP[stakeTime])
-                    .mul(100)
-                    .div(PERCENT_100);
-                totalUnlockReward = totalUnlockReward.add(
-                    DAILY_MINT_CAP
-                        .div(20)
+        if (LPStakers[stakeTime][_msgSender()].amountStaked > 0) {
+            uint256 i;
+            uint256 totalUnlockReward;
+            uint256 accumulativeDailyStakedLP = accumulativeStakedLP[stakeTime];
+            for (i = LPStakers[stakeTime][_msgSender()].lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
+                accumulativeDailyStakedLP = accumulativeStakedLP[i] == 0 ? accumulativeDailyStakedLP : accumulativeStakedLP[i];
+                if (dailyTotalParticipatedETH[i] > 0) {
+                    uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
                         .mul(PERCENT_100)
-                        .div(100)
-                        .mul(lpRewardPercent)
-                        .div(PERCENT_100)
-                );
+                        .div(accumulativeDailyStakedLP)
+                        .mul(100)
+                        .div(PERCENT_100);
+                    totalUnlockReward = totalUnlockReward.add(
+                        DAILY_MINT_CAP
+                            .div(20)
+                            .mul(PERCENT_100)
+                            .div(100)
+                            .mul(lpRewardPercent)
+                            .div(PERCENT_100)
+                    );
+                }
             }
+            return totalUnlockReward;
+            
         }
-        return totalUnlockReward;
+        return 0;
     }
 
     function startNextRound(uint256 startTime) internal {
@@ -173,11 +196,10 @@ contract Auction is Context, Ownable {
     function stake(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = getRightStakeTime();
-        uint256 lastStakeTime = getLastStakeTime();
         if (stakeTime > getLastStakeTime()) {
-            accumulativeUnicStake[stakeTime] = accumulativeUnicStake[stakeTime].add(accumulativeUnicStake[getLastStakeTime()]);
+            accumulativeStakedUnic[stakeTime] = accumulativeStakedUnic[stakeTime].add(accumulativeStakedUnic[getLastStakeTime()]);
         }
-        accumulativeUnicStake[stakeTime] = accumulativeUnicStake[stakeTime].add(amount);
+        accumulativeStakedUnic[stakeTime] = accumulativeStakedUnic[stakeTime].add(amount);
         dailyStakedUnic[stakeTime][_msgSender()] = dailyStakedUnic[stakeTime][_msgSender()].add(amount);
         stakeTimes.push(stakeTime);
         uint256 fivePercentOfStake = amount.div(20);
@@ -188,12 +210,11 @@ contract Auction is Context, Ownable {
     function unStake(uint256 stakeTime) external {
         require(dailyStakedUnic[stakeTime][_msgSender()] > 0, "Nothing to unstake");
         require(stakeTime.add(SECONDS_IN_DAY) < now, 'At least 1 day must pass');
-        uint256 i;
         uint256 totalStakeEarnings;
         uint256 accumulativeDailyTotalStakedUnic;
-        for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
+        for (uint256 i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
             if (dailyTotalParticipatedETH[i] > 0) {
-                accumulativeDailyTotalStakedUnic = accumulativeUnicStake[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeUnicStake[i];
+                accumulativeDailyTotalStakedUnic = accumulativeStakedUnic[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeStakedUnic[i];
                 uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
                     .mul(PERCENT_100)
                     .div(accumulativeDailyTotalStakedUnic)
@@ -210,30 +231,38 @@ contract Auction is Context, Ownable {
             }
         }
         uint256 lastStakeTime = getLastStakeTime();
-        accumulativeUnicStake[lastStakeTime] = accumulativeUnicStake[lastStakeTime].sub(dailyStakedUnic[stakeTime][_msgSender()]);
+        accumulativeStakedUnic[lastStakeTime] = accumulativeStakedUnic[lastStakeTime].sub(dailyStakedUnic[stakeTime][_msgSender()]);
         delete dailyStakedUnic[stakeTime][_msgSender()];
         _msgSender().transfer(totalStakeEarnings);
     }
 
-    function stakeLP(uint256 amount) external {
+    function stakeLP(address token, uint256 amount) external {
+        require(_unicToken.isBlacklisted(token), 'Token is not supported');
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = getRightStakeTime();
-        dailyTotalStakedLP[stakeTime] = dailyTotalStakedLP[stakeTime].add(amount);
+        if (stakeTime > getLastLPStakeTime()) {
+            accumulativeStakedLP[stakeTime] = accumulativeStakedLP[stakeTime].add(accumulativeStakedLP[getLastLPStakeTime()]);
+        }
+        accumulativeStakedLP[stakeTime] = accumulativeStakedLP[stakeTime].add(amount);
         LPStaker storage staker = LPStakers[stakeTime][_msgSender()];
         staker.amountStaked = staker.amountStaked.add(amount);
         staker.lastUnlockTime = stakeTime;
+        lpStakeTimes.push(stakeTime);
+        ERC20(token).transferFrom(_msgSender(), address(this), amount);
     }
 
     function unlockLPReward(uint256 stakeTime) external {
         require(LPStakers[stakeTime][_msgSender()].amountStaked > 0, "Nothing to unlock");
-        LPStaker memory staker = LPStakers[stakeTime][_msgSender()];
+        LPStaker storage staker = LPStakers[stakeTime][_msgSender()];
         uint256 i;
         uint256 totalUnlockReward;
-        for (i = staker.lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
+        uint256 accumulativeDailyStakedLP = accumulativeStakedLP[stakeTime];
+        for (i = LPStakers[stakeTime][_msgSender()].lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
+            accumulativeDailyStakedLP = accumulativeStakedLP[i] == 0 ? accumulativeDailyStakedLP : accumulativeStakedLP[i];
             if (dailyTotalParticipatedETH[i] > 0) {
                 uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
                     .mul(PERCENT_100)
-                    .div(dailyTotalStakedLP[i] > 0 ? dailyTotalStakedLP[i].add(stakeTime != i ? dailyTotalStakedLP[stakeTime] : 0) : dailyTotalStakedLP[stakeTime])
+                    .div(accumulativeDailyStakedLP)
                     .mul(100)
                     .div(PERCENT_100);
                 totalUnlockReward = totalUnlockReward.add(
