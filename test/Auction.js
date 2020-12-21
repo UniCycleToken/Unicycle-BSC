@@ -8,7 +8,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
-a    this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
+    this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
     expect(await this.auction.getTeamAddress({ from: owner })).to.equal(owner);
   });
