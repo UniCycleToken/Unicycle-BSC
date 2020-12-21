@@ -220,28 +220,27 @@ contract Auction is Context, Ownable {
     }
 
     function _calculateLPStakeReward(uint256 stakeTime) private view returns (uint256) {
-        uint256 i;
-            uint256 lpStakeReward;
-            uint256 accumulativeDailyStakedLP = accumulativeStakedLP[stakeTime];
-            for (i = LPStakers[stakeTime][_msgSender()].lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
-                accumulativeDailyStakedLP = accumulativeStakedLP[i] == 0 ? accumulativeDailyStakedLP : accumulativeStakedLP[i];
-                if (dailyTotalParticipatedETH[i] > 0) {
-                    uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
+        uint256 lpStakeReward;
+        uint256 accumulativeDailyStakedLP = accumulativeStakedLP[stakeTime];
+        for (uint256 i = LPStakers[stakeTime][_msgSender()].lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
+            accumulativeDailyStakedLP = accumulativeStakedLP[i] == 0 ? accumulativeDailyStakedLP : accumulativeStakedLP[i];
+            if (dailyTotalParticipatedETH[i] > 0) {
+                uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
+                    .mul(PERCENT_100)
+                    .div(accumulativeDailyStakedLP)
+                    .mul(100)
+                    .div(PERCENT_100);
+                lpStakeReward = lpStakeReward.add(
+                    DAILY_MINT_CAP
+                        .div(20)
                         .mul(PERCENT_100)
-                        .div(accumulativeDailyStakedLP)
-                        .mul(100)
-                        .div(PERCENT_100);
-                    lpStakeReward = lpStakeReward.add(
-                        DAILY_MINT_CAP
-                            .div(20)
-                            .mul(PERCENT_100)
-                            .div(100)
-                            .mul(lpRewardPercent)
-                            .div(PERCENT_100)
-                    );
-                }
+                        .div(100)
+                        .mul(lpRewardPercent)
+                        .div(PERCENT_100)
+                );
             }
-            return lpStakeReward;
+        }
+        return lpStakeReward;
     }
 
     function _setLastMintTime(uint256 mintTime) private {
