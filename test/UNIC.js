@@ -10,11 +10,17 @@ const Auction = artifacts.require('Auction');
 
 contract('UNIC test', async ([owner, burner, holder]) => {
   const startTime = Math.floor(Date.now() / 1000) - 86400;
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
     this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
+  });
+
+  it('setAuction and mint should fail', async () => {
+    await expectRevert(this.unic.setAuction(zeroAddress, { from: owner }), 'Zero address');
+    await expectRevert(this.unic.mint(100, { from: owner }), 'Caller is not auction');
   });
 
   it('checking the unic token parameters', async () => {

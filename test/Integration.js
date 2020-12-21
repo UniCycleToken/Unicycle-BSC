@@ -1,4 +1,6 @@
-const { BN, ether, time } = require('@openzeppelin/test-helpers');
+const {
+  BN, ether, time, expectRevert,
+} = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const UNICToken = artifacts.require('UNICToken');
@@ -92,6 +94,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     await this.unic.approve(this.auction.address, ether('500000'), { from: owner });
     await this.unic.approve(this.auction.address, ether('500000'), { from: alice });
     await this.unic.approve(this.auction.address, ether('1500000'), { from: bob });
+    await expectRevert(this.auction.unStake(startTime + 86400, { from: owner }), 'Nothing to unstake');
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('0'));
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('0'));
     expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('0'));
@@ -132,6 +135,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('7.5'));
     // doesnt include 95% of staked eth on first day = 4.75
     expect(await this.auction.getTeamETHShare({ from: owner })).to.be.bignumber.equal(ether('2.75'));
+    await this.auction._takeTeamETHShare({ from: owner });
     await this.auction._takeTeamETHShare({ from: owner });
     expect(await this.auction.getTeamETHShare({ from: owner })).to.be.bignumber.equal(ether('0'));
   });

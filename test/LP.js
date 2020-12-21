@@ -93,6 +93,8 @@ contract('LP related test', async ([owner, alice, bob]) => {
     await this.unic.addToBlacklist(lpTokenAddress);
     expect(await this.auction.canUnlockLPReward(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('0'));
     expect(await this.auction.canUnlockLPReward(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('0'));
+    await expectRevert(this.auction.stakeLP(lpTokenAddress, ether('0'), { from: owner }), 'Invalid stake amount');
+    await expectRevert(this.auction.stakeLP(alice, ether('0'), { from: owner }), 'Token is not supported');
     await this.auction.stakeLP(lpTokenAddress, ether('0.5'), { from: owner });
     expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('0.5'));
     expect(await this.auction.getStakedLP(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('0.5'));
@@ -113,6 +115,7 @@ contract('LP related test', async ([owner, alice, bob]) => {
     expect(await this.unic.balanceOf(owner)).to.be.bignumber.equal(ether('499990'));
     expect(await this.auction.canUnlockLPReward(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('250000'));
     expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 3));
+    await expectRevert(this.auction.unlockLPReward(startTime + 86400 * 2, { from: owner }), 'Nothing to unlock');
     await this.auction.unlockLPReward(startTime + 86400 * 3, { from: owner });
     expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 13));
     expect(await this.auction.canUnlockLPReward(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('0'));

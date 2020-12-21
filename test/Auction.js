@@ -5,9 +5,11 @@ const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
 contract('AUCTION test', async ([owner, alice, bob]) => {
   const startTime = Math.floor(Date.now() / 1000) - 86400;
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
+    await expectRevert(Auction.new(zeroAddress, startTime, owner, { from: owner }), 'ZERO ADDRESS');
     this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
     expect(await this.auction.getTeamAddress({ from: owner })).to.equal(owner);
