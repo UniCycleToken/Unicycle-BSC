@@ -8,7 +8,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
   beforeEach(async () => {
     const startTime = await time.latest();
     this.unic = await UNICToken.new({ from: owner });
-    this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
+    this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
   });
@@ -130,5 +130,9 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('21.75'));
     await this.auction.unStake(startTime + 86400 * 8, { from: bob });
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('7.5'));
+    // doesnt include 95% of staked eth on first day = 4.75
+    expect(await this.auction.getTeamETHShare({ from: owner })).to.be.bignumber.equal(ether('2.75'));
+    await this.auction._takeTeamETHShare({ from: owner });
+    expect(await this.auction.getTeamETHShare({ from: owner })).to.be.bignumber.equal(ether('0'));
   });
 });

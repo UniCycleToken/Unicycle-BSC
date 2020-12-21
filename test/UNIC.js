@@ -13,7 +13,7 @@ contract('UNIC test', async ([owner, burner, holder]) => {
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
-    this.auction = await Auction.new(this.unic.address, startTime, { from: owner });
+    this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
   });
 
