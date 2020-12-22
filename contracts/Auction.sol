@@ -136,6 +136,18 @@ contract Auction is Context, Ownable {
         return 0;
     }
 
+    function takeTeamETHShare() external onlyOwner {
+        uint256 teamETHShare = _teamETHShare;
+        _teamETHShare = 0;
+        if(!_isFirstDayETHTaken) {
+            _unicToken.mint(DAILY_MINT_CAP);
+            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]] - _dailyTotalParticipatedETH[_mintTimes[1]].div(20));
+            _unicToken.transfer(_teamAddress, DAILY_MINT_CAP);
+            _isFirstDayETHTaken = true;
+        }
+        _teamAddress.transfer(teamETHShare);
+    }
+
     function participate() external payable {
         require(msg.value > 0, "Insufficient participation");
         uint256 lastMintTime = getLastMintTime();
@@ -275,17 +287,5 @@ contract Auction is Context, Ownable {
     function _startNextRound(uint256 startTime) private {
         _setLastMintTime(startTime);
         _unicToken.mint(DAILY_MINT_CAP);
-    }
-
-    function _takeTeamETHShare() external onlyOwner {
-        uint256 teamETHShare = _teamETHShare;
-        _teamETHShare = 0;
-        if(!_isFirstDayETHTaken) {
-            _unicToken.mint(DAILY_MINT_CAP);
-            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]] - _dailyTotalParticipatedETH[_mintTimes[1]].div(20));
-            _unicToken.transfer(_teamAddress, DAILY_MINT_CAP);
-            _isFirstDayETHTaken = true;
-        }
-        _teamAddress.transfer(teamETHShare);
     }
 }

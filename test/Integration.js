@@ -135,8 +135,8 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('7.5'));
     // doesnt include 95% of staked eth on first day = 4.75
     expect(await this.auction.getTeamETHShare({ from: owner })).to.be.bignumber.equal(ether('2.75'));
-    await this.auction._takeTeamETHShare({ from: owner });
-    await this.auction._takeTeamETHShare({ from: owner });
+    await this.auction.takeTeamETHShare({ from: owner });
+    await this.auction.takeTeamETHShare({ from: owner });
     expect(await this.auction.getTeamETHShare({ from: owner })).to.be.bignumber.equal(ether('0'));
   });
 
