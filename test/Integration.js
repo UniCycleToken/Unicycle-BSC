@@ -139,4 +139,30 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     await this.auction._takeTeamETHShare({ from: owner });
     expect(await this.auction.getTeamETHShare({ from: owner })).to.be.bignumber.equal(ether('0'));
   });
+
+  it('check unStake after 100 days', async () => {
+    const startTime = (await this.auction.getLastMintTime()).toNumber();
+    await time.increase(time.duration.days(2)); // startTime + 86400,
+    await this.auction.participate({ from: alice, value: ether('1') });
+    await time.increase(time.duration.days(1)); // startTime + 86400,
+    await this.auction.unlockTokens(startTime + 86400 * 2, { from: alice });
+    expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('2500000'));
+    await this.unic.approve(this.auction.address, ether('500000'), { from: alice });
+    await this.auction.stake(ether('500000'), { from: alice });
+    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25000'));
+    for (let i = 0; i < 110; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await this.auction.participate({ from: owner, value: ether('0.1') });
+      // eslint-disable-next-line no-await-in-loop
+      await time.increase(time.duration.days(1));
+    }
+    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('275025000'));
+    expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('12'));
+    expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('9.5'));
+    await this.auction.unStake(startTime + 86400 * 3, { from: alice });
+    expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('2.5'));
+    expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('0'));
+  });
 });
