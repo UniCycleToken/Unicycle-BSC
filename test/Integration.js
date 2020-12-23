@@ -21,11 +21,11 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await this.auction.canUnlockTokens(startTime + 86400 * 2, { from: alice })).to.be.bignumber.equal(ether('0'));
     expect(await this.auction.canUnlockTokens(startTime + 86400 * 2, { from: bob })).to.be.bignumber.equal(ether('0'));
     await this.auction.participate({ from: alice, value: ether('1') });
-    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('1'));
+    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('2'));
     await time.increase(time.duration.days(1)); // startTime + 86400 * 3,
     await this.auction.participate({ from: bob, value: ether('2') });
-    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('2'));
+    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), bob, { from: bob })).to.be.bignumber.equal(ether('2'));
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('3'));
     expect(await this.auction.getTotalParticipateAmount({ from: alice })).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getTotalParticipateAmount({ from: bob })).to.be.bignumber.equal(ether('2'));
@@ -34,11 +34,11 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     // 3 and 4 days pause
     await time.increase(time.duration.days(1)); // startTime + 86400 * 4,
     await this.auction.participate({ from: alice, value: ether('1') });
-    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('1'));
+    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('4'));
     await time.increase(time.duration.days(1)); // startTime + 86400 * 5,
     await this.auction.participate({ from: bob, value: ether('2') });
-    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('2'));
+    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), bob, { from: bob })).to.be.bignumber.equal(ether('2'));
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('5'));
     expect(await this.auction.getTotalParticipateAmount({ from: alice })).to.be.bignumber.equal(ether('2'));
     expect(await this.auction.getTotalParticipateAmount({ from: bob })).to.be.bignumber.equal(ether('4'));
@@ -47,10 +47,10 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     // 5 days pause
     await time.increase(time.duration.days(1)); // startTime + 86400 * 6,
     await this.auction.participate({ from: alice, value: ether('1') });
-    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('1'));
+    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('6'));
     await this.auction.participate({ from: bob, value: ether('4') });
-    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('4'));
+    expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), bob, { from: bob })).to.be.bignumber.equal(ether('4'));
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('6'));
     expect(await this.auction.getTotalParticipateAmount({ from: alice })).to.be.bignumber.equal(ether('3'));
     expect(await this.auction.getTotalParticipateAmount({ from: bob })).to.be.bignumber.equal(ether('8'));
@@ -102,7 +102,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('500000'));
     await this.auction.stake(ether('500000'), { from: alice });
     expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('1000000'));
-    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('500000'));
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('50000'));
     for (let i = 0; i < 5; i += 1) {
       // eslint-disable-next-line no-await-in-loop
@@ -124,7 +124,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     }
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25125000'));
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('55'));
-    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('500000'));
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: owner })).to.be.bignumber.equal(ether('16.625'));
     expect(await this.auction.canUnStake(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('16.625'));
     expect(await this.auction.canUnStake(startTime + 86400 * 8, { from: bob })).to.be.bignumber.equal(ether('14.25'));
@@ -150,7 +150,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     await this.unic.approve(this.auction.address, ether('500000'), { from: alice });
     await this.auction.stake(ether('500000'), { from: alice });
     expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('500000'));
-    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, { from: alice })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('500000'));
     expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25000'));
     for (let i = 0; i < 110; i += 1) {
       // eslint-disable-next-line no-await-in-loop

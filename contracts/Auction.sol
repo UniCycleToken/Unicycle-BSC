@@ -2,7 +2,7 @@ pragma solidity >=0.6.0 <0.7.0;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interfaces.sol";
 
 
@@ -14,8 +14,8 @@ contract Auction is Context, Ownable {
         uint256 lastUnlockTime;
     }
 
-    uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
-    uint256 public constant PERCENT_100 = 10**18;
+    uint256 private constant DAILY_MINT_CAP = 2_500_000 * 10 ** 18;
+    uint256 private constant PERCENT_100 = 10**18;
     uint256 private constant SECONDS_IN_DAY = 86400;
 
     uint256[] private _mintTimes;
@@ -38,7 +38,7 @@ contract Auction is Context, Ownable {
     IUnicToken private _unicToken;
 
     constructor(address unicTokenAddress, uint256 mintTime, address payable teamAddress) public {
-        require(unicTokenAddress != 0x0000000000000000000000000000000000000000, "ZERO ADDRESS");
+        require(unicTokenAddress != address(0), "ZERO ADDRESS");
         _unicToken = IUnicToken(unicTokenAddress);
         _teamAddress = teamAddress;
         _setLastMintTime(mintTime);
@@ -53,8 +53,8 @@ contract Auction is Context, Ownable {
         return _teamAddress;
     }
 
-    function getLastLpUnlockTime(uint256 stakeTime) external view returns (uint256) {
-        return _LPStakers[stakeTime][_msgSender()].lastUnlockTime;
+    function getLastLpUnlockTime(uint256 stakeTime, address user) external view returns (uint256) {
+        return _LPStakers[stakeTime][user].lastUnlockTime;
     }
 
     function getAccumulativeUnic() external view returns (uint256) {
@@ -69,16 +69,16 @@ contract Auction is Context, Ownable {
         return _mintTimes.length;
     }
 
-    function getParticipatedETHAmount(uint256 mintTime) public view returns (uint256) {
-        return _dailyParticipatedETH[mintTime][_msgSender()];
+    function getParticipatedETHAmount(uint256 mintTime, address user) external view returns (uint256) {
+        return _dailyParticipatedETH[mintTime][user];
     }
 
-    function getStakedUnic(uint256 stakeTime) external view returns (uint256) {
-        return _dailyStakedUnic[stakeTime][_msgSender()];
+    function getStakedUnic(uint256 stakeTime, address user) external view returns (uint256) {
+        return _dailyStakedUnic[stakeTime][user];
     }
 
-    function getStakedLP(uint256 stakeTime) external view returns (uint256) {
-        return _LPStakers[stakeTime][_msgSender()].amountStaked;
+    function getStakedLP(uint256 stakeTime, address user) external view returns (uint256) {
+        return _LPStakers[stakeTime][user].amountStaked;
     }
 
     // function getDailyTotalStakedLP(uint256 stakeTime) external view returns (uint256) {
@@ -204,7 +204,7 @@ contract Auction is Context, Ownable {
         staker.amountStaked = staker.amountStaked.add(amount);
         staker.lastUnlockTime = stakeTime;
         _lpStakeTimes.push(stakeTime);
-        ERC20(token).transferFrom(_msgSender(), address(this), amount);
+        IERC20(token).transferFrom(_msgSender(), address(this), amount);
     }
 
     function unlockLPReward(uint256 stakeTime) external {

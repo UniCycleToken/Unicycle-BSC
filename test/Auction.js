@@ -1,18 +1,19 @@
-const { expectRevert, ether } = require('@openzeppelin/test-helpers');
+fixconst { expectRevert, ether, constants } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
 const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
 contract('AUCTION test', async ([owner, alice, bob]) => {
   const startTime = Math.floor(Date.now() / 1000) - 86400;
-  const zeroAddress = '0x0000000000000000000000000000000000000000';
+
+  it('auction constructor should fail', async () => {
+    await expectRevert(Auction.new(constants.ZERO_ADDRESS, startTime, owner, { from: owner }), 'ZERO ADDRESS');
+  });
 
   beforeEach(async () => {
     this.unic = await UNICToken.new({ from: owner });
-    await expectRevert(Auction.new(zeroAddress, startTime, owner, { from: owner }), 'ZERO ADDRESS');
     this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
     await this.unic.setAuction(this.auction.address, { from: owner });
-    expect(await this.auction.getTeamAddress({ from: owner })).to.equal(owner);
   });
 
   describe('check participate/unlock', async () => {
@@ -23,9 +24,13 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('2500000'));
     });
 
+    it('check team address', async () => {
+      expect(await this.auction.getTeamAddress({ from: owner })).to.equal(owner);
+    });
+
     it('participate positive', async () => {
-      expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('1'));
-      expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('4'));
+      expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('1'));
+      expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), bob, { from: bob })).to.be.bignumber.equal(ether('4'));
     });
 
     it('participate negative', async () => {
@@ -62,8 +67,8 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     });
 
     it('stake positive', async () => {
-      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('300000'));
-      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('200000'));
+      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('300000'));
+      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), bob, { from: bob })).to.be.bignumber.equal(ether('200000'));
       expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('200000'));
       expect(await this.unic.balanceOf(bob)).to.be.bignumber.equal(ether('1800000'));
       // 5% of staked unic
@@ -79,11 +84,11 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       await expectRevert(this.auction.unStake(await this.auction.getLastMintTime(), { from: alice }), 'At least 1 day must pass');
       // a day has not passed
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
-      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: alice })).to.be.bignumber.equal(ether('300000'));
+      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('300000'));
       await expectRevert(this.auction.unStake(await this.auction.getLastMintTime(), { from: bob }), 'At least 1 day must pass');
       // a day has not passed
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
-      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), { from: bob })).to.be.bignumber.equal(ether('200000'));
+      expect(await this.auction.getStakedUnic(await this.auction.getLastMintTime(), bob, { from: bob })).to.be.bignumber.equal(ether('200000'));
     });
   });
 });

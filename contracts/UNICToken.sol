@@ -8,9 +8,9 @@ import "./Interfaces.sol";
 contract UNICToken is IUnicToken, ERC20, Ownable {
     using SafeMath for uint256;
 
-    mapping(address => bool) internal _blacklistedAddresses;
+    mapping(address => bool) private _blacklistedAddresses;
 
-    address internal _auctionAddress;
+    address private _auctionAddress;
 
     modifier onlyAuction() {
         require(_msgSender() == _auctionAddress, "Caller is not auction");
@@ -25,14 +25,11 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
     constructor () public ERC20("UNICToken", "UNIC") {}
 
     function isBlacklisted(address account) external view override returns (bool) {
-        if (_blacklistedAddresses[account]) {
-            return true;
-        }
-        return false;
+        return _blacklistedAddresses[account];
     }
 
     function setAuction(address auctionAddress) external override onlyOwner {
-        require(auctionAddress != 0x0000000000000000000000000000000000000000, "Zero address");
+        require(auctionAddress != address(0), "Zero address");
         _auctionAddress = auctionAddress;
     }
 
