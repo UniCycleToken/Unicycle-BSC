@@ -153,7 +153,7 @@ contract Auction is Context, Ownable {
         _teamETHShare = 0;
         if(!_isFirstDayETHTaken) {
             _unicToken.mint(DAILY_MINT_CAP);
-            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]] - _dailyTotalParticipatedETH[_mintTimes[1]].div(20));
+            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100));
             _unicToken.transfer(_teamAddress, DAILY_MINT_CAP);
             _isFirstDayETHTaken = true;
         }
@@ -185,8 +185,9 @@ contract Auction is Context, Ownable {
     function stake(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
-        if (stakeTime > getLastStakeTime()) {
-            _accumulativeStakedUnic[stakeTime] = _accumulativeStakedUnic[stakeTime].add(_accumulativeStakedUnic[getLastStakeTime()]);
+        uint256 lastStakeTime = getLastStakeTime();
+        if (stakeTime > lastStakeTime) {
+            _accumulativeStakedUnic[stakeTime] = _accumulativeStakedUnic[lastStakeTime];
         }
         _accumulativeStakedUnic[stakeTime] = _accumulativeStakedUnic[stakeTime].add(amount);
         _dailyStakedUnic[stakeTime][_msgSender()] = _dailyStakedUnic[stakeTime][_msgSender()].add(amount);
@@ -212,12 +213,13 @@ contract Auction is Context, Ownable {
         require(_unicToken.isBlacklisted(token), 'Token is not supported');
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
-        if (stakeTime > getLastLPStakeTime()) {
-            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[stakeTime].add(_accumulativeStakedLP[getLastLPStakeTime()]);
+        uint256 lastLPStakeTime = getLastLPStakeTime();
+        if (stakeTime > lastLPStakeTime) {
+            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[lastLPStakeTime];
         }
         _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[stakeTime].add(amount);
-        LPStaker storage staker = _LPStakers[stakeTime][_msgSender()];
-        staker.amountStaked = staker.amountStaked.add(amount);
+        LPStake storage staker = _LPStakes[stakeTime][_msgSender()];
+        staker.amount = staker.amount.add(amount);
         staker.lastUnlockTime = stakeTime;
         _lpStakeTimes.push(stakeTime);
         IERC20(token).transferFrom(_msgSender(), address(this), amount);
@@ -256,7 +258,7 @@ contract Auction is Context, Ownable {
                 );
             }
         }
-        return unicStakeReward - unicStakeReward.div(20);
+        return unicStakeReward.mul(95).div(100);
     }
 
     function _calculateLPStakeReward(uint256 stakeTime) private view returns (uint256, uint256) {
