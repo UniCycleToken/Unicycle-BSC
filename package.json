@@ -22,8 +22,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "^3.1.0",
     "@uniswap/v2-core": "^1.0.1",
-    "@uniswap/v2-periphery": "^1.1.0-beta.0",
-    "solium": "^1.2.5"
+    "@uniswap/v2-periphery": "^1.1.0-beta.0"
   },
   "devDependencies": {
     "@openzeppelin/test-helpers": "^0.5.9",
@@ -48,7 +47,8 @@
     "solidity-coverage": "^0.7.9",
     "truffle": "^5.1.36",
     "truffle-flattener": "^1.4.4",
-    "web3-utils": "^1.2.11"
+    "web3-utils": "^1.2.11",
+    "solium": "^1.2.5"
   },
   "repository": {
     "type": "git",

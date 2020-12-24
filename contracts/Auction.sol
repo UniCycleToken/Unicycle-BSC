@@ -163,9 +163,11 @@ contract Auction is Context, Ownable {
 
     function unlockTokens(uint256 mintTime) external {
         require(_dailyParticipatedETH[mintTime][_msgSender()] > 0, "Nothing to unlock");
-        // require(mintTime.add(SECONDS_IN_DAY) < now);
+        require(mintTime.add(SECONDS_IN_DAY) < now);
+        uint256 participatedAmount = _dailyParticipatedETH[mintTime][_msgSender()];
+        delete _dailyParticipatedETH[mintTime][_msgSender()];
         uint256 unicSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedETH[mintTime]);
-        _unicToken.transfer(_msgSender(), _dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout));
+        _unicToken.transfer(_msgSender(), participatedAmount.mul(unicSharePayout));
     }
 
     function stake(uint256 amount) external {
