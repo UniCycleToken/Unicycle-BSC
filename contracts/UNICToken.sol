@@ -41,11 +41,11 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         _burn(_auctionAddress, amount);
     }
 
-    function addToBlacklist(address account) public onlyOwner onlyIfNotBlacklisted(account) {
+    function addToBlacklist(address account) external onlyOwner onlyIfNotBlacklisted(account) {
         _blacklistedAddresses[account] = true;
     }
 
-    function rempoveFromBlacklist(address account) public onlyOwner {
+    function removeFromBlacklist(address account) external onlyOwner {
         require(_blacklistedAddresses[account], "Not blacklisted");
         delete _blacklistedAddresses[account];
     }
