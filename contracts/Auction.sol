@@ -9,8 +9,8 @@ import "./Interfaces.sol";
 contract Auction is Context, Ownable {
     using SafeMath for uint256;
 
-    struct LPStaker {
-        uint256 amountStaked;
+    struct LPStake {
+        uint256 amount;
         uint256 lastUnlockTime;
     }
 
@@ -24,7 +24,7 @@ contract Auction is Context, Ownable {
     // timestamp => address => data
     mapping(uint256 => mapping(address => uint256)) private _dailyParticipatedETH;
     mapping(uint256 => mapping(address => uint256)) private _dailyStakedUnic;
-    mapping(uint256 => mapping(address => LPStaker)) private _LPStakers;
+    mapping(uint256 => mapping(address => LPStake)) private _LPStakes;
     // timestamp => data
     mapping(uint256 => uint256) private _dailyTotalParticipatedETH;
     mapping(uint256 => uint256) private _accumulativeStakedUnic;
@@ -66,7 +66,7 @@ contract Auction is Context, Ownable {
     }
 
     function getLastLpUnlockTime(uint256 stakeTime, address user) external view returns (uint256) {
-        return _LPStakers[stakeTime][user].lastUnlockTime;
+        return _LPStakes[stakeTime][user].lastUnlockTime;
     }
 
     function getAccumulativeUnic() external view returns (uint256) {
@@ -90,7 +90,7 @@ contract Auction is Context, Ownable {
     }
 
     function getStakedLP(uint256 stakeTime, address user) external view returns (uint256) {
-        return _LPStakers[stakeTime][user].amountStaked;
+        return _LPStakes[stakeTime][user].amount;
     }
 
     // function getDailyTotalStakedLP(uint256 stakeTime) external view returns (uint256) {
@@ -121,7 +121,7 @@ contract Auction is Context, Ownable {
     }
 
     function canUnlockLPReward(uint256 stakeTime, address user) external view returns (uint256) {
-        if (_LPStakers[stakeTime][user].amountStaked > 0) {
+        if (_LPStakes[stakeTime][user].amount > 0) {
             uint256 lpStakeReward;
             (lpStakeReward,) = _calculateLPStakeReward(stakeTime);
             return lpStakeReward;
@@ -226,11 +226,11 @@ contract Auction is Context, Ownable {
     }
 
     function unlockLPReward(uint256 stakeTime, address user) external {
-        require(_LPStakers[stakeTime][user].amountStaked > 0, "Nothing to unlock");
+        require(_LPStakes[stakeTime][user].amount > 0, "Nothing to unlock");
         uint256 lpStakeReward;
         uint256 lastStakeTime;
         (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime);
-        _LPStakers[stakeTime][user].lastUnlockTime = lastStakeTime;
+        _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
         _unicToken.transfer(user, lpStakeReward);
     }
 
@@ -264,8 +264,8 @@ contract Auction is Context, Ownable {
     function _calculateLPStakeReward(uint256 stakeTime) private view returns (uint256, uint256) {
         uint256 lpStakeReward;
         uint256 accumulativeDailyStakedLP = _accumulativeStakedLP[stakeTime];
-        uint256 amountStaked = _LPStakers[stakeTime][_msgSender()].amountStaked;
-        uint256 lastUnlockTime = _LPStakers[stakeTime][_msgSender()].lastUnlockTime;
+        uint256 amountStaked = _LPStakes[stakeTime][_msgSender()].amount;
+        uint256 lastUnlockTime = _LPStakes[stakeTime][_msgSender()].lastUnlockTime;
         for (;lastUnlockTime <= block.timestamp ;) {
             accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
             if (_dailyTotalParticipatedETH[lastUnlockTime] > 0) {
