@@ -1,0 +1,57 @@
+{
+  "name": "unic",
+  "version": "2.0.0",
+  "description": "",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "eslint": "eslint test/",
+    "solium": "solium --dir contracts",
+    "lint": "npm run eslint && npm run solium",
+    "coverage": "truffle run coverage",
+    "build": "truffle build",
+    "pretest": "truffle build && cp ./node_modules/@uniswap/v2-periphery/build/WETH9.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-periphery/build/UniswapV2Router02.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Pair.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Factory.json ./build/contracts/",
+    "test": "truffle test",
+    "truffle": "truffle",
+    "flatten": "rm -rf ./deployments/* && mkdir -p ./deployments && truffle-flattener ./contracts/UNICToken.sol  >> ./deployments/UNICToken.sol && truffle-flattener ./contracts/Auction.sol  >> ./deployments/Auction.sol"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "^3.1.0",
+    "@uniswap/v2-core": "^1.0.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-helpers": "^0.5.9",
+    "babel-polyfill": "^6.26.0",
+    "babel-preset-env": "^1.7.0",
+    "babel-register": "^6.26.0",
+    "bignumber.js": "^9.0.0",
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
+    "chai-bignumber": "^3.0.0",
+    "eslint": "^7.5.0",
+    "eslint-config-airbnb": "^18.2.0",
+    "eslint-config-airbnb-base": "^14.2.0",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-jsx-a11y": "^6.3.1",
+    "eslint-plugin-react": "^7.20.4",
+    "eslint-plugin-react-hooks": "^4.0.8",
+    "eth-gas-reporter": "^0.2.17",
+    "ethereumjs-testrpc-sc": "^6.5.1-sc.1",
+    "karma": "^5.1.0",
+    "lodash": "^4.17.19",
+    "solidity-coverage": "^0.7.9",
+    "truffle": "^5.1.36",
+    "truffle-flattener": "^1.4.4",
+    "web3-utils": "^1.2.11",
+    "solium": "^1.2.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@git.sfxdx.ru:gambolr/sc/ewgr.git"
+  }
+}
