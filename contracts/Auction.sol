@@ -21,7 +21,7 @@ contract Auction is Context, Ownable {
     uint256[] private _mintTimes;
     uint256[] private _stakeTimes;
     uint256[] private _lpStakeTimes;
-mr V comments fixes, plus optimized calculation funcs    // timestamp => address => data
+    // timestamp => address => data
     mapping(uint256 => mapping(address => uint256)) private _dailyParticipatedETH;
     mapping(uint256 => mapping(address => uint256)) private _dailyStakedUnic;
     mapping(uint256 => mapping(address => LPStaker)) private _LPStakers;

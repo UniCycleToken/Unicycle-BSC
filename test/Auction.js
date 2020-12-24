@@ -5,7 +5,7 @@ const { expect } = require('chai');
 
 const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
-contract('Integration test', async ([owner, alice, bob]) => {
+contract('Auction test', async ([owner, alice, bob]) => {
 
   beforeEach(async () => {
     const startTime = await time.latest();
