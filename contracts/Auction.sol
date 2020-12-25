@@ -14,9 +14,21 @@ contract Auction is Context, Ownable {
         uint256 lastUnlockTime;
     }
 
+    struct UserStake {
+        uint256 amount;
+        uint256 stakeTime;
+    }
+
+    struct UserLPStake {
+        uint256 amount;
+        uint256 stakeTime;
+    }
+
     uint256 private constant DAILY_MINT_CAP = 2_500_000 * 10 ** 18;
-    uint256 private constant PERCENT_100 = 10**18;
     uint256 private constant SECONDS_IN_DAY = 86400;
+
+    mapping(address => UserStake[]) private userStakes;
+    mapping(address => UserLPStake[]) private userLPStakes;
 
     uint256[] private _mintTimes;
     uint256[] private _stakeTimes;
@@ -47,6 +59,22 @@ contract Auction is Context, Ownable {
         _teamAddress = teamAddress;
         _setLastMintTime(mintTime);
         _isFirstDayETHTaken = false;
+    }
+
+    function getUserStakesData(address user, uint256 index) external view returns (uint256, uint256) {
+        return (userStakes[user][index].amount, userStakes[user][index].stakeTime);
+    }
+
+    function getUserStakesDataLength(address user) external view returns (uint256) {
+        return userStakes[user].length;
+    }
+
+    function getUserLPStakesData(address user, uint256 index) external view returns (uint256, uint256) {
+        return (userLPStakes[user][index].amount, userLPStakes[user][index].stakeTime);
+    }
+
+    function getUserLPStakesDataLength(address user) external view returns (uint256) {
+        return userLPStakes[user].length;
     }
 
     function getUnicAddress() external view returns (address) {
@@ -107,8 +135,7 @@ contract Auction is Context, Ownable {
 
     function canUnlockTokens(uint256 mintTime, address user) external view returns (uint256) {
         if (_dailyTotalParticipatedETH[mintTime] > 0) {
-            uint256 unicSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedETH[mintTime]);
-            return _dailyParticipatedETH[mintTime][user].mul(unicSharePayout);
+            return _dailyParticipatedETH[mintTime][user].mul(DAILY_MINT_CAP).div(_dailyTotalParticipatedETH[mintTime]);
         }
         return 0;
     }
@@ -195,6 +222,21 @@ contract Auction is Context, Ownable {
         uint256 fivePercentOfStake = amount.div(20);
         _unicToken.transferFrom(_msgSender(), address(this), amount);
         _unicToken.burn(amount.sub(fivePercentOfStake));
+        UserStake memory userStake;
+        if (userStakes[_msgSender()].length > 0) {
+            userStake = userStakes[_msgSender()][userStakes[_msgSender()].length - 1];
+            if (userStake.stakeTime == stakeTime) {
+                userStakes[_msgSender()][userStakes[_msgSender()].length - 1].amount = userStake.amount.add(amount);
+            } else {
+                userStake.amount = amount;
+                userStake.stakeTime = stakeTime;
+                userStakes[_msgSender()].push(userStake);
+            }
+        } else {
+                userStake.amount = amount;
+                userStake.stakeTime = stakeTime;
+                userStakes[_msgSender()].push(userStake);
+        }
         emit Stake(amount, stakeTime, _msgSender());
     }
 
@@ -206,6 +248,12 @@ contract Auction is Context, Ownable {
         delete _dailyStakedUnic[stakeTime][user];
         user.transfer(unstakeRewardAmount);
         _accumulativeStakedUnic[lastStakeTime] = _accumulativeStakedUnic[lastStakeTime].sub(_dailyStakedUnic[stakeTime][user]);
+        for (uint256 i = 0; i < userStakes[user].length; i++) {
+            if (userStakes[user][i].stakeTime == stakeTime) {
+                userStakes[user][i] = userStakes[user][userStakes[user].length - 1];
+                userStakes[user].pop();
+            }
+        }
         emit Unstake(unstakeRewardAmount, stakeTime, user);
     }
 
@@ -222,6 +270,21 @@ contract Auction is Context, Ownable {
         staker.amount = staker.amount.add(amount);
         staker.lastUnlockTime = stakeTime;
         _lpStakeTimes.push(stakeTime);
+        UserLPStake memory userLPStake;
+        if (userLPStakes[_msgSender()].length > 0) {
+            userLPStake = userLPStakes[_msgSender()][userLPStakes[_msgSender()].length - 1];
+            if (userLPStake.stakeTime == stakeTime) {
+                userLPStakes[_msgSender()][userLPStakes[_msgSender()].length - 1].amount = userLPStake.amount.add(amount);
+            } else {
+                userLPStake.amount = amount;
+                userLPStake.stakeTime = stakeTime;
+                userLPStakes[_msgSender()].push(userLPStake);
+            }
+        } else {
+                userLPStake.amount = amount;
+                userLPStake.stakeTime = stakeTime;
+                userLPStakes[_msgSender()].push(userLPStake);
+        }
         IERC20(token).transferFrom(_msgSender(), address(this), amount);
     }
 
