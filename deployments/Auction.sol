@@ -1,6 +1,6 @@
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -162,7 +162,7 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -189,7 +189,7 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -259,7 +259,7 @@ contract Ownable is Context {
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -493,12 +493,13 @@ contract Auction is Context, Ownable {
     }
 
     function takeTeamETHShare() external onlyOwner {
+        require(_mintTimes[1].add(86400) < block.timestamp, 'Wait one day to take your share');
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
         if(!_isFirstDayETHTaken) {
-            _cycleToken.mint(DAILY_MINT_CAP);
+            _cycleToken.mint(100000);
             teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100));
-            _cycleToken.transfer(_teamAddress, DAILY_MINT_CAP);
+            _cycleToken.transfer(_teamAddress, 100000);
             _isFirstDayETHTaken = true;
         }
         _teamAddress.transfer(teamETHShare);
