@@ -337,466 +337,13 @@ interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-// File: @openzeppelin/contracts/utils/Address.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.2;
-
-/**
- * @dev Collection of functions related to the address type
- */
-library Address {
-    /**
-     * @dev Returns true if `account` is a contract.
-     *
-     * [IMPORTANT]
-     * ====
-     * It is unsafe to assume that an address for which this function returns
-     * false is an externally-owned account (EOA) and not a contract.
-     *
-     * Among others, `isContract` will return false for the following
-     * types of addresses:
-     *
-     *  - an externally-owned account
-     *  - a contract in construction
-     *  - an address where a contract will be created
-     *  - an address where a contract lived, but was destroyed
-     * ====
-     */
-    function isContract(address account) internal view returns (bool) {
-        // This method relies in extcodesize, which returns 0 for contracts in
-        // construction, since the code is only stored at the end of the
-        // constructor execution.
-
-        uint256 size;
-        // solhint-disable-next-line no-inline-assembly
-        assembly { size := extcodesize(account) }
-        return size > 0;
-    }
-
-    /**
-     * @dev Replacement for Solidity's `transfer`: sends `amount` wei to
-     * `recipient`, forwarding all available gas and reverting on errors.
-     *
-     * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost
-     * of certain opcodes, possibly making contracts go over the 2300 gas limit
-     * imposed by `transfer`, making them unable to receive funds via
-     * `transfer`. {sendValue} removes this limitation.
-     *
-     * https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/[Learn more].
-     *
-     * IMPORTANT: because control is transferred to `recipient`, care must be
-     * taken to not create reentrancy vulnerabilities. Consider using
-     * {ReentrancyGuard} or the
-     * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
-     */
-    function sendValue(address payable recipient, uint256 amount) internal {
-        require(address(this).balance >= amount, "Address: insufficient balance");
-
-        // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
-        (bool success, ) = recipient.call{ value: amount }("");
-        require(success, "Address: unable to send value, recipient may have reverted");
-    }
-
-    /**
-     * @dev Performs a Solidity function call using a low level `call`. A
-     * plain`call` is an unsafe replacement for a function call: use this
-     * function instead.
-     *
-     * If `target` reverts with a revert reason, it is bubbled up by this
-     * function (like regular Solidity function calls).
-     *
-     * Returns the raw returned data. To convert to the expected return value,
-     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].
-     *
-     * Requirements:
-     *
-     * - `target` must be a contract.
-     * - calling `target` with `data` must not revert.
-     *
-     * _Available since v3.1._
-     */
-    function functionCall(address target, bytes memory data) internal returns (bytes memory) {
-      return functionCall(target, data, "Address: low-level call failed");
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with
-     * `errorMessage` as a fallback revert reason when `target` reverts.
-     *
-     * _Available since v3.1._
-     */
-    function functionCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
-        return _functionCallWithValue(target, data, 0, errorMessage);
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
-     * but also transferring `value` wei to `target`.
-     *
-     * Requirements:
-     *
-     * - the calling contract must have an ETH balance of at least `value`.
-     * - the called Solidity function must be `payable`.
-     *
-     * _Available since v3.1._
-     */
-    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
-        return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
-    }
-
-    /**
-     * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but
-     * with `errorMessage` as a fallback revert reason when `target` reverts.
-     *
-     * _Available since v3.1._
-     */
-    function functionCallWithValue(address target, bytes memory data, uint256 value, string memory errorMessage) internal returns (bytes memory) {
-        require(address(this).balance >= value, "Address: insufficient balance for call");
-        return _functionCallWithValue(target, data, value, errorMessage);
-    }
-
-    function _functionCallWithValue(address target, bytes memory data, uint256 weiValue, string memory errorMessage) private returns (bytes memory) {
-        require(isContract(target), "Address: call to non-contract");
-
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, bytes memory returndata) = target.call{ value: weiValue }(data);
-        if (success) {
-            return returndata;
-        } else {
-            // Look for revert reason and bubble it up if present
-            if (returndata.length > 0) {
-                // The easiest way to bubble the revert reason is using memory via assembly
-
-                // solhint-disable-next-line no-inline-assembly
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert(errorMessage);
-            }
-        }
-    }
-}
-
-// File: @openzeppelin/contracts/token/ERC20/ERC20.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
-
-
-
-
-
-/**
- * @dev Implementation of the {IERC20} interface.
- *
- * This implementation is agnostic to the way tokens are created. This means
- * that a supply mechanism has to be added in a derived contract using {_mint}.
- * For a generic mechanism see {ERC20PresetMinterPauser}.
- *
- * TIP: For a detailed writeup see our guide
- * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
- * to implement supply mechanisms].
- *
- * We have followed general OpenZeppelin guidelines: functions revert instead
- * of returning `false` on failure. This behavior is nonetheless conventional
- * and does not conflict with the expectations of ERC20 applications.
- *
- * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
- * This allows applications to reconstruct the allowance for all accounts just
- * by listening to said events. Other implementations of the EIP may not emit
- * these events, as it isn't required by the specification.
- *
- * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
- * functions have been added to mitigate the well-known issues around setting
- * allowances. See {IERC20-approve}.
- */
-contract ERC20 is Context, IERC20 {
-    using SafeMath for uint256;
-    using Address for address;
-
-    mapping (address => uint256) private _balances;
-
-    mapping (address => mapping (address => uint256)) private _allowances;
-
-    uint256 private _totalSupply;
-
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
-
-    /**
-     * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
-     * a default value of 18.
-     *
-     * To select a different value for {decimals}, use {_setupDecimals}.
-     *
-     * All three of these values are immutable: they can only be set once during
-     * construction.
-     */
-    constructor (string memory name, string memory symbol) public {
-        _name = name;
-        _symbol = symbol;
-        _decimals = 18;
-    }
-
-    /**
-     * @dev Returns the name of the token.
-     */
-    function name() public view returns (string memory) {
-        return _name;
-    }
-
-    /**
-     * @dev Returns the symbol of the token, usually a shorter version of the
-     * name.
-     */
-    function symbol() public view returns (string memory) {
-        return _symbol;
-    }
-
-    /**
-     * @dev Returns the number of decimals used to get its user representation.
-     * For example, if `decimals` equals `2`, a balance of `505` tokens should
-     * be displayed to a user as `5,05` (`505 / 10 ** 2`).
-     *
-     * Tokens usually opt for a value of 18, imitating the relationship between
-     * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
-     * called.
-     *
-     * NOTE: This information is only used for _display_ purposes: it in
-     * no way affects any of the arithmetic of the contract, including
-     * {IERC20-balanceOf} and {IERC20-transfer}.
-     */
-    function decimals() public view returns (uint8) {
-        return _decimals;
-    }
-
-    /**
-     * @dev See {IERC20-totalSupply}.
-     */
-    function totalSupply() public view override returns (uint256) {
-        return _totalSupply;
-    }
-
-    /**
-     * @dev See {IERC20-balanceOf}.
-     */
-    function balanceOf(address account) public view override returns (uint256) {
-        return _balances[account];
-    }
-
-    /**
-     * @dev See {IERC20-transfer}.
-     *
-     * Requirements:
-     *
-     * - `recipient` cannot be the zero address.
-     * - the caller must have a balance of at least `amount`.
-     */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
-        return true;
-    }
-
-    /**
-     * @dev See {IERC20-allowance}.
-     */
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
-        return _allowances[owner][spender];
-    }
-
-    /**
-     * @dev See {IERC20-approve}.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
-        _approve(_msgSender(), spender, amount);
-        return true;
-    }
-
-    /**
-     * @dev See {IERC20-transferFrom}.
-     *
-     * Emits an {Approval} event indicating the updated allowance. This is not
-     * required by the EIP. See the note at the beginning of {ERC20};
-     *
-     * Requirements:
-     * - `sender` and `recipient` cannot be the zero address.
-     * - `sender` must have a balance of at least `amount`.
-     * - the caller must have allowance for ``sender``'s tokens of at least
-     * `amount`.
-     */
-    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
-        _transfer(sender, recipient, amount);
-        _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
-        return true;
-    }
-
-    /**
-     * @dev Atomically increases the allowance granted to `spender` by the caller.
-     *
-     * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     */
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
-        return true;
-    }
-
-    /**
-     * @dev Atomically decreases the allowance granted to `spender` by the caller.
-     *
-     * This is an alternative to {approve} that can be used as a mitigation for
-     * problems described in {IERC20-approve}.
-     *
-     * Emits an {Approval} event indicating the updated allowance.
-     *
-     * Requirements:
-     *
-     * - `spender` cannot be the zero address.
-     * - `spender` must have allowance for the caller of at least
-     * `subtractedValue`.
-     */
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
-        return true;
-    }
-
-    /**
-     * @dev Moves tokens `amount` from `sender` to `recipient`.
-     *
-     * This is internal function is equivalent to {transfer}, and can be used to
-     * e.g. implement automatic token fees, slashing mechanisms, etc.
-     *
-     * Emits a {Transfer} event.
-     *
-     * Requirements:
-     *
-     * - `sender` cannot be the zero address.
-     * - `recipient` cannot be the zero address.
-     * - `sender` must have a balance of at least `amount`.
-     */
-    function _transfer(address sender, address recipient, uint256 amount) internal virtual {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
-
-        _beforeTokenTransfer(sender, recipient, amount);
-
-        _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
-        _balances[recipient] = _balances[recipient].add(amount);
-        emit Transfer(sender, recipient, amount);
-    }
-
-    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
-     * the total supply.
-     *
-     * Emits a {Transfer} event with `from` set to the zero address.
-     *
-     * Requirements
-     *
-     * - `to` cannot be the zero address.
-     */
-    function _mint(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: mint to the zero address");
-
-        _beforeTokenTransfer(address(0), account, amount);
-
-        _totalSupply = _totalSupply.add(amount);
-        _balances[account] = _balances[account].add(amount);
-        emit Transfer(address(0), account, amount);
-    }
-
-    /**
-     * @dev Destroys `amount` tokens from `account`, reducing the
-     * total supply.
-     *
-     * Emits a {Transfer} event with `to` set to the zero address.
-     *
-     * Requirements
-     *
-     * - `account` cannot be the zero address.
-     * - `account` must have at least `amount` tokens.
-     */
-    function _burn(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: burn from the zero address");
-
-        _beforeTokenTransfer(account, address(0), amount);
-
-        _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
-        _totalSupply = _totalSupply.sub(amount);
-        emit Transfer(account, address(0), amount);
-    }
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
-     *
-     * This internal function is equivalent to `approve`, and can be used to
-     * e.g. set automatic allowances for certain subsystems, etc.
-     *
-     * Emits an {Approval} event.
-     *
-     * Requirements:
-     *
-     * - `owner` cannot be the zero address.
-     * - `spender` cannot be the zero address.
-     */
-    function _approve(address owner, address spender, uint256 amount) internal virtual {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
-
-        _allowances[owner][spender] = amount;
-        emit Approval(owner, spender, amount);
-    }
-
-    /**
-     * @dev Sets {decimals} to a value other than the default one of 18.
-     *
-     * WARNING: This function should only be called from the constructor. Most
-     * applications that interact with token contracts will not expect
-     * {decimals} to ever change, and may work incorrectly if it does.
-     */
-    function _setupDecimals(uint8 decimals_) internal {
-        _decimals = decimals_;
-    }
-
-    /**
-     * @dev Hook that is called before any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * will be to transferred to `to`.
-     * - when `from` is zero, `amount` tokens will be minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual { }
-}
-
 // File: contracts/Interfaces.sol
 
 /* solium-disable */
 pragma solidity >= 0.6.0 < 0.7.0;
 
  /* solium-disable-next-line */
-interface IUnicToken is IERC20 {
+interface ICycleToken is IERC20 {
     function mint(uint256 amount) external;
     function burn(uint256 amount) external;
     function isBlacklisted(address account) view external returns (bool);
@@ -815,253 +362,309 @@ pragma solidity >=0.6.0 <0.7.0;
 contract Auction is Context, Ownable {
     using SafeMath for uint256;
 
-    struct LPStaker {
-        uint256 amountStaked;
+    struct LPStake {
+        uint256 amount;
         uint256 lastUnlockTime;
     }
 
-    uint256 public constant DAILY_MINT_CAP = 2_500_000_000_000_000_000_000_000;
-    uint256 public constant PERCENT_100 = 10**18;
+    uint256 private constant DAILY_MINT_CAP = 2_500_000 * 10 ** 18;
     uint256 private constant SECONDS_IN_DAY = 86400;
 
-    uint256[] public mintTimes;
-    uint256[] public stakeTimes;
+    mapping(address => uint256[]) private userParticipateTimes;
+    mapping(address => uint256[]) private userStakeTimes;
+    mapping(address => uint256[]) private userLPStakeTimes;
 
-    mapping(uint256 => mapping(address => uint256)) public dailyStakedUnic;
+    uint256 private _lastStakeTime;
+    uint256 private _lastLPStakeTime;
 
-    mapping(uint256 => uint256) public accumulativeUnicStake;
+    uint256[] private _mintTimes;
+    // timestamp => address => data
+    mapping(uint256 => mapping(address => uint256)) private _dailyParticipatedETH;
+    mapping(uint256 => mapping(address => uint256)) private _dailyStakedCycle;
+    mapping(uint256 => mapping(address => LPStake)) private _LPStakes;
+    // timestamp => data
+    mapping(uint256 => uint256) private _dailyTotalParticipatedETH;
+    mapping(uint256 => uint256) private _accumulativeStakedCycle;
+    mapping(uint256 => uint256) private _accumulativeStakedLP;
+    
+    
+   
+    address payable private _teamAddress;
+    uint256 private _teamETHShare;
+    bool private _isFirstDayETHTaken;
 
-    mapping(uint256 => mapping(address => uint256)) public dailyParticipatedETH;
-    mapping(uint256 => uint256) public dailyTotalParticipatedETH;
+    ICycleToken private _cycleToken;
 
-    mapping(uint256 => mapping(address => LPStaker)) LPStakers;
-    mapping(uint256 => uint256) public dailyTotalStakedLP;
+    event Stake(uint256 amount, uint256 stakeTime, address account);
+    event Unstake(uint256 reward, uint256 stakeTime, address account);
 
-    IUnicToken internal _unicToken;
-
-    constructor(address unicTokenAddress, uint256 mintTime) public {
-        require(unicTokenAddress != 0x0000000000000000000000000000000000000000, "ZERO ADDRESS");
-        _unicToken = IUnicToken(unicTokenAddress);
-        setLastMintTime(mintTime);
+    constructor(address cycleTokenAddress, uint256 mintTime, address payable teamAddress) public {
+        require(cycleTokenAddress != address(0), "ZERO ADDRESS");
+        _cycleToken = ICycleToken(cycleTokenAddress);
+        _teamAddress = teamAddress;
+        _setLastMintTime(mintTime);
+        _isFirstDayETHTaken = false;
+        _lastStakeTime = mintTime;
+        _lastLPStakeTime = mintTime;
     }
 
-    function getLastMintTime() public view returns (uint256) {
-        if (mintTimes.length > 0) {
-            return mintTimes[mintTimes.length - 1];
-        }
-        return 0;
+    function getUserParticipatesData(address user) external view returns (uint256[] memory) {
+        return userParticipateTimes[user];
     }
 
-    function getLastStakeTime() public view returns (uint256) {
-        if (stakeTimes.length > 0) {
-            return stakeTimes[stakeTimes.length - 1];
-        }
-        return 0;
+    function getUserStakesData(address user) external view returns (uint256[] memory) {
+        return userStakeTimes[user];
     }
 
-    function getAccumulative() public view returns (uint256) {
-        return accumulativeUnicStake[getLastStakeTime()];
+    function getUserLPStakesData(address user) external view returns (uint256[] memory) {
+        return userLPStakeTimes[user];
     }
 
-    function getMintTimesLength() public view returns (uint256) {
-        return mintTimes.length;
+    function getCycleAddress() external view returns (address) {
+        return address(_cycleToken);
     }
 
-    function setLastMintTime(uint256 mintTime) internal {
-        mintTimes.push(mintTime);
+    function getTeamInfo() external onlyOwner view returns (uint256, address) {
+        return (_teamETHShare, _teamAddress);
     }
 
-    function getParticipatedETHAmount(uint256 mintTime) public view returns (uint256) {
-        return dailyParticipatedETH[mintTime][_msgSender()];
+    function getLastLpUnlockTime(uint256 stakeTime, address user) external view returns (uint256) {
+        return _LPStakes[stakeTime][user].lastUnlockTime;
     }
 
-    function getStakedUnic(uint256 stakeTime) external view returns (uint256) {
-        return dailyStakedUnic[stakeTime][_msgSender()];
+    function getAccumulativeCycle() external view returns (uint256) {
+        return _accumulativeStakedCycle[_lastStakeTime];
     }
 
-    function getStakedLP(uint256 stakeTime) external view returns (uint256) {
-        return LPStakers[stakeTime][_msgSender()].amountStaked;
+    function getAccumulativeLP() external view returns (uint256) {
+        return _accumulativeStakedLP[_lastLPStakeTime];
     }
 
-    function getDailyTotalStakedLP(uint256 stakeTime) external view returns (uint256) {
-        return dailyTotalStakedLP[stakeTime];
+    function getMintTimesLength() external view returns (uint256) {
+        return _mintTimes.length;
     }
 
-    function getTotalParticipateAmount() external view returns (uint256) {
+    function getParticipatedETHAmount(uint256 mintTime, address user) external view returns (uint256) {
+        return _dailyParticipatedETH[mintTime][user];
+    }
+
+    function getStakedCycle(uint256 stakeTime, address user) external view returns (uint256) {
+        return _dailyStakedCycle[stakeTime][user];
+    }
+
+    function getStakedLP(uint256 stakeTime, address user) external view returns (uint256) {
+        return _LPStakes[stakeTime][user].amount;
+    }
+
+    function getTotalParticipateAmount(address user) external view returns (uint256) {
         uint256 totalEth;
-        for (uint256 i = 0; i < mintTimes.length; i++) {
-            totalEth = totalEth.add(dailyParticipatedETH[mintTimes[i]][_msgSender()]);
+        for (uint256 i = 0; i < _mintTimes.length; i++) {
+            totalEth = totalEth.add(_dailyParticipatedETH[_mintTimes[i]][user]);
         }
         return totalEth;
     }
 
-    function canUnlockTokens(uint256 mintTime) external view returns (uint256) {
-        if (dailyTotalParticipatedETH[mintTime] > 0) {
-            uint256 unicSharePayout = DAILY_MINT_CAP.div(dailyTotalParticipatedETH[mintTime]);
-            return dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout);
+    function canUnlockTokens(uint256 mintTime, address user) external view returns (uint256) {
+        if (_dailyTotalParticipatedETH[mintTime] > 0) {
+            return _dailyParticipatedETH[mintTime][user].mul(DAILY_MINT_CAP).div(_dailyTotalParticipatedETH[mintTime]);
         }
         return 0;
     }
 
-    function canUnStake(uint256 stakeTime) external view returns (uint256) {
-        uint256 i;
-        uint256 totalStakeEarnings;
-        uint256 accumulativeDailyTotalStakedUnic;
-        for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
-            if (dailyTotalParticipatedETH[i] > 0) {
-                accumulativeDailyTotalStakedUnic = accumulativeUnicStake[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeUnicStake[i];
-                uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
-                    .mul(PERCENT_100)
-                    .div(accumulativeDailyTotalStakedUnic)
-                    .mul(100)
-                    .div(PERCENT_100);
-                uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
-                totalStakeEarnings = totalStakeEarnings.add(
-                    stakersETHShare
-                        .mul(PERCENT_100)
-                        .div(100)
-                        .mul(stakeEarningsPercent)
-                        .div(PERCENT_100)
-                );
-            }
+    function canUnstake(uint256 stakeTime, address user) external view returns (uint256) {
+        if (_dailyStakedCycle[stakeTime][user] > 0 && stakeTime.add(SECONDS_IN_DAY) < block.timestamp) {
+            return _calculateCycleStakeReward(stakeTime, user);
         }
-        return totalStakeEarnings;
+        return 0;
     }
 
-    function canUnlockLPReward(uint256 stakeTime) external view returns (uint256) {
-        LPStaker memory staker = LPStakers[stakeTime][_msgSender()];
-        uint256 i;
-        uint256 totalUnlockReward;
-        for (i = staker.lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
-            if (dailyTotalParticipatedETH[i] > 0) {
-                uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
-                    .mul(PERCENT_100)
-                    .div(dailyTotalStakedLP[i] > 0 ? dailyTotalStakedLP[i].add(stakeTime != i ? dailyTotalStakedLP[stakeTime] : 0) : dailyTotalStakedLP[stakeTime])
-                    .mul(100)
-                    .div(PERCENT_100);
-                totalUnlockReward = totalUnlockReward.add(
-                    DAILY_MINT_CAP
-                        .div(20)
-                        .mul(PERCENT_100)
-                        .div(100)
-                        .mul(lpRewardPercent)
-                        .div(PERCENT_100)
-                );
-            }
+    function canUnlockLPReward(uint256 stakeTime, address user) external view returns (uint256) {
+        if (_LPStakes[stakeTime][user].amount > 0) {
+            uint256 lpStakeReward;
+            (lpStakeReward,) = _calculateLPStakeReward(stakeTime);
+            return lpStakeReward;
+            
         }
-        return totalUnlockReward;
+        return 0;
     }
 
-    function startNextRound(uint256 startTime) internal {
-        setLastMintTime(startTime);
-        _unicToken.mint(DAILY_MINT_CAP);
+    function getLastMintTime() public view returns (uint256) {
+        return _mintTimes[_mintTimes.length - 1];
+    }
+
+    function takeTeamETHShare() external onlyOwner {
+        uint256 teamETHShare = _teamETHShare;
+        _teamETHShare = 0;
+        if(!_isFirstDayETHTaken) {
+            _cycleToken.mint(DAILY_MINT_CAP);
+            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100));
+            _cycleToken.transfer(_teamAddress, DAILY_MINT_CAP);
+            _isFirstDayETHTaken = true;
+        }
+        _teamAddress.transfer(teamETHShare);
     }
 
     function participate() external payable {
         require(msg.value > 0, "Insufficient participation");
         uint256 lastMintTime = getLastMintTime();
-        if (lastMintTime.add(SECONDS_IN_DAY) <= now) {
-            uint256 newLastMintTime = lastMintTime.add(((now.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
-            startNextRound(newLastMintTime);
+        if (lastMintTime.add(SECONDS_IN_DAY) <= block.timestamp) {
+            uint256 newLastMintTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
+            _startNextRound(newLastMintTime);
             lastMintTime = getLastMintTime();
         }
-        dailyTotalParticipatedETH[lastMintTime] = dailyTotalParticipatedETH[lastMintTime].add(msg.value);
-        dailyParticipatedETH[lastMintTime][_msgSender()] = dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
+        _dailyTotalParticipatedETH[lastMintTime] = _dailyTotalParticipatedETH[lastMintTime].add(msg.value);
+        _dailyParticipatedETH[lastMintTime][_msgSender()] = _dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
+        _teamETHShare = _teamETHShare.add(msg.value.div(20));
+        if (userParticipateTimes[_msgSender()].length > 0) {
+            if (userParticipateTimes[_msgSender()][userParticipateTimes[_msgSender()].length - 1] != lastMintTime) {
+                userParticipateTimes[_msgSender()].push(lastMintTime);
+            }
+        } else {
+            userParticipateTimes[_msgSender()].push(lastMintTime);
+        }
     }
 
-    function unlockTokens(uint256 mintTime) public {
-        require(dailyParticipatedETH[mintTime][_msgSender()] > 0, "Nothing to unlock");
-        // require(mintTime.add(SECONDS_IN_DAY) < now);
-        uint256 unicSharePayout = DAILY_MINT_CAP.div(dailyTotalParticipatedETH[mintTime]);
-        _unicToken.transfer(_msgSender(), dailyParticipatedETH[mintTime][_msgSender()].mul(unicSharePayout));
+    function unlockTokens(uint256 mintTime, address user) external {
+        require(_dailyParticipatedETH[mintTime][user] > 0, "Nothing to unlock");
+        require(mintTime.add(SECONDS_IN_DAY) < block.timestamp, "At least 1 day must pass");
+        uint256 participatedAmount = _dailyParticipatedETH[mintTime][user];
+        delete _dailyParticipatedETH[mintTime][user];
+        uint256 cycleSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedETH[mintTime]);
+        for (uint256 i = 0; i < userParticipateTimes[user].length; i++) {
+            if (userParticipateTimes[user][i] == mintTime) {
+                userParticipateTimes[user][i] = userParticipateTimes[user][userParticipateTimes[user].length - 1];
+                userParticipateTimes[user].pop();
+            }
+        }
+        _cycleToken.transfer(user, participatedAmount.mul(cycleSharePayout));
     }
 
     function stake(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
-        uint256 stakeTime = getRightStakeTime();
-        uint256 lastStakeTime = getLastStakeTime();
-        if (stakeTime > getLastStakeTime()) {
-            accumulativeUnicStake[stakeTime] = accumulativeUnicStake[stakeTime].add(accumulativeUnicStake[getLastStakeTime()]);
+        uint256 stakeTime = _getRightStakeTime();
+        // uint256 lastStakeTime = getLastStakeTime();
+        if (stakeTime > _lastStakeTime) {
+            _accumulativeStakedCycle[stakeTime] = _accumulativeStakedCycle[_lastStakeTime];
         }
-        accumulativeUnicStake[stakeTime] = accumulativeUnicStake[stakeTime].add(amount);
-        dailyStakedUnic[stakeTime][_msgSender()] = dailyStakedUnic[stakeTime][_msgSender()].add(amount);
-        stakeTimes.push(stakeTime);
+        _accumulativeStakedCycle[stakeTime] = _accumulativeStakedCycle[stakeTime].add(amount);
+        _dailyStakedCycle[stakeTime][_msgSender()] = _dailyStakedCycle[stakeTime][_msgSender()].add(amount);
+        _lastStakeTime = stakeTime;
         uint256 fivePercentOfStake = amount.div(20);
-        _unicToken.transferFrom(_msgSender(), address(this), amount);
-        _unicToken.burn(amount.sub(fivePercentOfStake));
+        _cycleToken.transferFrom(_msgSender(), address(this), amount);
+        _cycleToken.burn(amount.sub(fivePercentOfStake));
+        if (userStakeTimes[_msgSender()].length > 0) {
+            if (userStakeTimes[_msgSender()][userStakeTimes[_msgSender()].length - 1] != stakeTime) {
+                userStakeTimes[_msgSender()].push(stakeTime);
+            }
+        } else {
+            userStakeTimes[_msgSender()].push(stakeTime);
+        }
+        emit Stake(amount, stakeTime, _msgSender());
     }
 
-    function unStake(uint256 stakeTime) external {
-        require(dailyStakedUnic[stakeTime][_msgSender()] > 0, "Nothing to unstake");
-        require(stakeTime.add(SECONDS_IN_DAY) < now, 'At least 1 day must pass');
-        uint256 i;
-        uint256 totalStakeEarnings;
-        uint256 accumulativeDailyTotalStakedUnic;
-        for (i = stakeTime; i <= now && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
-            if (dailyTotalParticipatedETH[i] > 0) {
-                accumulativeDailyTotalStakedUnic = accumulativeUnicStake[i] == 0 ? accumulativeDailyTotalStakedUnic : accumulativeUnicStake[i];
-                uint256 stakeEarningsPercent = dailyStakedUnic[stakeTime][_msgSender()]
-                    .mul(PERCENT_100)
-                    .div(accumulativeDailyTotalStakedUnic)
-                    .mul(100)
-                    .div(PERCENT_100);
-                uint256 stakersETHShare = dailyTotalParticipatedETH[i] - dailyTotalParticipatedETH[i].div(20);
-                totalStakeEarnings = totalStakeEarnings.add(
-                    stakersETHShare
-                        .mul(PERCENT_100)
-                        .div(100)
-                        .mul(stakeEarningsPercent)
-                        .div(PERCENT_100)
-                );
+    function unstake(uint256 stakeTime, address payable user) external {
+        require(_dailyStakedCycle[stakeTime][user] > 0, "Nothing to unstake");
+        require(stakeTime.add(SECONDS_IN_DAY) < block.timestamp, 'At least 1 day must pass');
+        uint256 unstakeRewardAmount = _calculateCycleStakeReward(stakeTime, user);
+        delete _dailyStakedCycle[stakeTime][user];
+        user.transfer(unstakeRewardAmount);
+        _accumulativeStakedCycle[_lastStakeTime] = _accumulativeStakedCycle[_lastStakeTime].sub(_dailyStakedCycle[stakeTime][user]);
+        for (uint256 i = 0; i < userStakeTimes[user].length; i++) {
+            if (userStakeTimes[user][i] == stakeTime) {
+                userStakeTimes[user][i] = userStakeTimes[user][userStakeTimes[user].length - 1];
+                userStakeTimes[user].pop();
             }
         }
-        uint256 lastStakeTime = getLastStakeTime();
-        accumulativeUnicStake[lastStakeTime] = accumulativeUnicStake[lastStakeTime].sub(dailyStakedUnic[stakeTime][_msgSender()]);
-        delete dailyStakedUnic[stakeTime][_msgSender()];
-        _msgSender().transfer(totalStakeEarnings);
+        emit Unstake(unstakeRewardAmount, stakeTime, user);
     }
 
-    function stakeLP(uint256 amount) external {
+    function stakeLP(address token, uint256 amount) external {
+        require(_cycleToken.isBlacklisted(token), 'Token is not supported');
         require(amount > 0, "Invalid stake amount");
-        uint256 stakeTime = getRightStakeTime();
-        dailyTotalStakedLP[stakeTime] = dailyTotalStakedLP[stakeTime].add(amount);
-        LPStaker storage staker = LPStakers[stakeTime][_msgSender()];
-        staker.amountStaked = staker.amountStaked.add(amount);
-        staker.lastUnlockTime = stakeTime;
-    }
-
-    function unlockLPReward(uint256 stakeTime) external {
-        require(LPStakers[stakeTime][_msgSender()].amountStaked > 0, "Nothing to unlock");
-        LPStaker memory staker = LPStakers[stakeTime][_msgSender()];
-        uint256 i;
-        uint256 totalUnlockReward;
-        for (i = staker.lastUnlockTime; i <= now; i += SECONDS_IN_DAY) {
-            if (dailyTotalParticipatedETH[i] > 0) {
-                uint256 lpRewardPercent = LPStakers[stakeTime][_msgSender()].amountStaked
-                    .mul(PERCENT_100)
-                    .div(dailyTotalStakedLP[i] > 0 ? dailyTotalStakedLP[i].add(stakeTime != i ? dailyTotalStakedLP[stakeTime] : 0) : dailyTotalStakedLP[stakeTime])
-                    .mul(100)
-                    .div(PERCENT_100);
-                totalUnlockReward = totalUnlockReward.add(
-                    DAILY_MINT_CAP
-                        .div(20)
-                        .mul(PERCENT_100)
-                        .div(100)
-                        .mul(lpRewardPercent)
-                        .div(PERCENT_100)
-                );
-            }
+        uint256 stakeTime = _getRightStakeTime();
+        if (stakeTime > _lastLPStakeTime) {
+            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[_lastLPStakeTime];
         }
-        staker.lastUnlockTime = getRightStakeTime();
-        _unicToken.transfer(_msgSender(), totalUnlockReward);
+        _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[stakeTime].add(amount);
+        LPStake storage staker = _LPStakes[stakeTime][_msgSender()];
+        staker.amount = staker.amount.add(amount);
+        staker.lastUnlockTime = stakeTime;
+        _lastLPStakeTime = stakeTime;
+        if (userLPStakeTimes[_msgSender()].length > 0) {
+            if (userLPStakeTimes[_msgSender()][userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
+                userLPStakeTimes[_msgSender()].push(stakeTime);
+            }
+        } else {
+            userLPStakeTimes[_msgSender()].push(stakeTime);
+        }
+        IERC20(token).transferFrom(_msgSender(), address(this), amount);
     }
 
-    function getRightStakeTime() private view returns(uint256) {
+    function unlockLPReward(uint256 stakeTime, address user) external {
+        require(_LPStakes[stakeTime][user].amount > 0, "Nothing to unlock");
+        uint256 lpStakeReward;
+        uint256 lastStakeTime;
+        (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime);
+        _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
+        _cycleToken.transfer(user, lpStakeReward);
+    }
+
+    function _getRightStakeTime() private view returns(uint256) {
         uint256 lastMintTime = getLastMintTime();
-        if (lastMintTime.add(SECONDS_IN_DAY) <= now) {
-            uint256 newStakeTime = lastMintTime.add(((now.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
+        if (lastMintTime.add(SECONDS_IN_DAY) <= block.timestamp) {
+            uint256 newStakeTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
             return newStakeTime;
         }
         return lastMintTime;
+    }
+
+
+    function _calculateCycleStakeReward(uint256 stakeTime, address user) private view returns (uint256) {
+        uint256 cycleStakeReward;
+        uint256 accumulativeDailyStakedCycle = _accumulativeStakedCycle[stakeTime];
+        uint256 amountStaked = _dailyStakedCycle[stakeTime][user];
+        for (uint256 i = stakeTime; i <= block.timestamp && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
+            if (_dailyTotalParticipatedETH[i] > 0) {
+                accumulativeDailyStakedCycle = _accumulativeStakedCycle[i] == 0 ? accumulativeDailyStakedCycle : _accumulativeStakedCycle[i];
+                cycleStakeReward = cycleStakeReward.add(
+                    _dailyTotalParticipatedETH[i]
+                        .mul(amountStaked)
+                        .div(accumulativeDailyStakedCycle)
+                );
+            }
+        }
+        return cycleStakeReward.mul(95).div(100);
+    }
+
+    function _calculateLPStakeReward(uint256 stakeTime) private view returns (uint256, uint256) {
+        uint256 lpStakeReward;
+        uint256 accumulativeDailyStakedLP = _accumulativeStakedLP[stakeTime];
+        uint256 amountStaked = _LPStakes[stakeTime][_msgSender()].amount;
+        uint256 lastUnlockTime = _LPStakes[stakeTime][_msgSender()].lastUnlockTime;
+        for (;lastUnlockTime <= block.timestamp ;) {
+            accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
+            if (_dailyTotalParticipatedETH[lastUnlockTime] > 0) {
+                lpStakeReward = lpStakeReward.add(
+                    DAILY_MINT_CAP
+                        .div(20)
+                        .mul(amountStaked)
+                        .div(accumulativeDailyStakedLP)
+                );
+            }
+            if (gasleft() < 100000) {
+                return(lpStakeReward, lastUnlockTime.sub(SECONDS_IN_DAY));
+            }
+            lastUnlockTime = lastUnlockTime.add(SECONDS_IN_DAY);
+        }
+        return (lpStakeReward, lastUnlockTime.sub(SECONDS_IN_DAY));
+    }
+
+    function _setLastMintTime(uint256 mintTime) private {
+        _mintTimes.push(mintTime);
+    }
+
+    function _startNextRound(uint256 startTime) private {
+        _setLastMintTime(startTime);
+        _cycleToken.mint(DAILY_MINT_CAP);
     }
 }
