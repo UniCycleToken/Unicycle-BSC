@@ -3,16 +3,16 @@ const {
 } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
-const UNICToken = artifacts.require('UNICToken');
+const CYCLEToken = artifacts.require('CYCLEToken');
 const Auction = artifacts.require('Auction');
 
 contract('Integration test', async ([owner, alice, bob]) => {
   beforeEach(async () => {
     const startTime = await time.latest();
-    this.unic = await UNICToken.new({ from: owner });
-    this.auction = await Auction.new(this.unic.address, startTime, owner, { from: owner });
-    await this.unic.setAuction(this.auction.address, { from: owner });
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
+    this.cycle = await CYCLEToken.new({ from: owner });
+    this.auction = await Auction.new(this.cycle.address, startTime, owner, { from: owner });
+    await this.cycle.setAuction(this.auction.address, { from: owner });
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
   });
 
   it('check participate and unlock after n day pause', async () => {
@@ -57,25 +57,25 @@ contract('Integration test', async ([owner, alice, bob]) => {
     expect(await this.auction.canUnlockTokens(startTime + 86400 * 6, alice, { from: alice })).to.be.bignumber.equal(ether('500000'));
     expect(await this.auction.canUnlockTokens(startTime + 86400 * 6, bob, { from: bob })).to.be.bignumber.equal(ether('2000000'));
     // a lot of tokens, cause no one unlocked yet
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('12500000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('12500000'));
     // await time.advanceBlock();
     // now unlock them one by one
     // (await this.auction.canUnlockTokens(startTime + 86400 * 2, { from: alice }));
     await time.increase(time.duration.days(4)); // startTime + 86400 * 10,
     await this.auction.unlockTokens(startTime + 86400 * 2, alice, { from: alice });
-    // alice was the only one participating that day she took all unics for the day
-    expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('2500000'));
+    // alice was the only one participating that day she took all cycles for the day
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('2500000'));
     await this.auction.unlockTokens(startTime + 86400 * 3, bob, { from: bob });
-    // bob was the only one participating that day he took all unics for the day
-    expect(await this.unic.balanceOf(bob)).to.be.bignumber.equal(ether('2500000'));
+    // bob was the only one participating that day he took all cycles for the day
+    expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('2500000'));
     // the balance of auction was subbed accordingly
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('7500000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('7500000'));
     // unlock the tokens from the last day when bob and alice participate together
     await this.auction.unlockTokens(startTime + 86400 * 6, alice, { from: alice });
     await this.auction.unlockTokens(startTime + 86400 * 6, bob, { from: bob });
-    expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('3000000'));
-    expect(await this.unic.balanceOf(bob)).to.be.bignumber.equal(ether('4500000'));
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('5000000'));
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('3000000'));
+    expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('4500000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('5000000'));
   });
 
   it('Check stake and unstake for n days', async () => {
@@ -88,43 +88,43 @@ contract('Integration test', async ([owner, alice, bob]) => {
     await this.auction.unlockTokens(startTime + 86400 * 2, owner, { from: owner });
     await this.auction.unlockTokens(startTime + 86400 * 2, alice, { from: alice });
     await this.auction.unlockTokens(startTime + 86400 * 2, bob, { from: bob });
-    expect(await this.unic.balanceOf(owner)).to.be.bignumber.equal(ether('500000'));
-    expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('500000'));
-    expect(await this.unic.balanceOf(bob)).to.be.bignumber.equal(ether('1500000'));
-    await this.unic.approve(this.auction.address, ether('500000'), { from: owner });
-    await this.unic.approve(this.auction.address, ether('500000'), { from: alice });
-    await this.unic.approve(this.auction.address, ether('1500000'), { from: bob });
+    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(ether('500000'));
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('500000'));
+    expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('1500000'));
+    await this.cycle.approve(this.auction.address, ether('500000'), { from: owner });
+    await this.cycle.approve(this.auction.address, ether('500000'), { from: alice });
+    await this.cycle.approve(this.auction.address, ether('1500000'), { from: bob });
     await expectRevert(this.auction.unstake(startTime + 86400, owner, { from: owner }), 'Nothing to unstake');
     expect(await this.auction.canUnstake(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
     expect(await this.auction.canUnstake(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
-    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('0'));
+    expect(await this.auction.getAccumulativeCycle()).to.be.bignumber.equal(ether('0'));
     await this.auction.stake(ether('500000'), { from: owner });
-    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getAccumulativeCycle()).to.be.bignumber.equal(ether('500000'));
     await this.auction.stake(ether('500000'), { from: alice });
-    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('1000000'));
-    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('500000'));
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('50000'));
+    expect(await this.auction.getAccumulativeCycle()).to.be.bignumber.equal(ether('1000000'));
+    expect(await this.auction.getStakedCycle(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('50000'));
     for (let i = 0; i < 5; i += 1) {
       // eslint-disable-next-line no-await-in-loop
       await this.auction.participate({ from: owner, value: ether('5') });
       // eslint-disable-next-line no-await-in-loop
       await time.increase(time.duration.days(1));
     }
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('12550000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('12550000'));
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('30'));
     expect(await this.auction.canUnstake(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('11.875'));
     expect(await this.auction.canUnstake(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('11.875'));
     await this.auction.stake(ether('1500000'), { from: bob });
-    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('2500000'));
+    expect(await this.auction.getAccumulativeCycle()).to.be.bignumber.equal(ether('2500000'));
     for (let i = 0; i < 5; i += 1) {
       // eslint-disable-next-line no-await-in-loop
       await this.auction.participate({ from: owner, value: ether('5') });
       // eslint-disable-next-line no-await-in-loop
       await time.increase(time.duration.days(1));
     }
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25125000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25125000'));
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('55'));
-    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getStakedCycle(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('500000'));
     expect(await this.auction.canUnstake(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('16.625'));
     expect(await this.auction.canUnstake(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('16.625'));
     expect(await this.auction.canUnstake(startTime + 86400 * 8, bob, { from: bob })).to.be.bignumber.equal(ether('14.25'));
@@ -146,19 +146,19 @@ contract('Integration test', async ([owner, alice, bob]) => {
     await this.auction.participate({ from: alice, value: ether('1') });
     await time.increase(time.duration.days(1)); // startTime + 86400,
     await this.auction.unlockTokens(startTime + 86400 * 2, alice, { from: alice });
-    expect(await this.unic.balanceOf(alice)).to.be.bignumber.equal(ether('2500000'));
-    await this.unic.approve(this.auction.address, ether('500000'), { from: alice });
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('2500000'));
+    await this.cycle.approve(this.auction.address, ether('500000'), { from: alice });
     await this.auction.stake(ether('500000'), { from: alice });
-    expect(await this.auction.getAccumulativeUnic()).to.be.bignumber.equal(ether('500000'));
-    expect(await this.auction.getStakedUnic(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('500000'));
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25000'));
+    expect(await this.auction.getAccumulativeCycle()).to.be.bignumber.equal(ether('500000'));
+    expect(await this.auction.getStakedCycle(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('500000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('25000'));
     for (let i = 0; i < 110; i += 1) {
       // eslint-disable-next-line no-await-in-loop
       await this.auction.participate({ from: owner, value: ether('0.1') });
       // eslint-disable-next-line no-await-in-loop
       await time.increase(time.duration.days(1));
     }
-    expect(await this.unic.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('275025000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('275025000'));
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('12'));
     expect(await this.auction.canUnstake(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('9.5'));
     await this.auction.unstake(startTime + 86400 * 3, alice, { from: alice });
@@ -173,7 +173,7 @@ contract('Integration test', async ([owner, alice, bob]) => {
     await this.auction.participate({ from: owner, value: ether('1') });
     await time.increase(time.duration.days(1)); // startTime + 86400 * 3,
     await this.auction.unlockTokens(startTime + 86400 * 2, owner, { from: owner });
-    await this.unic.approve(this.auction.address, ether('500000'), { from: owner });
+    await this.cycle.approve(this.auction.address, ether('500000'), { from: owner });
     expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(0);
     // checking adding to mapping
     await this.auction.stake(ether('100000'), { from: owner });

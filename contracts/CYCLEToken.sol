@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Interfaces.sol";
 
 
-contract UNICToken is IUnicToken, ERC20, Ownable {
+contract CYCLEToken is ICycleToken, ERC20, Ownable {
     using SafeMath for uint256;
 
     mapping(address => bool) private _blacklistedAddresses;
@@ -22,7 +22,7 @@ contract UNICToken is IUnicToken, ERC20, Ownable {
         _;
     }
 
-    constructor () public ERC20("UNICToken", "UNIC") {}
+    constructor () public ERC20("CYCLEToken", "CYCLE") {}
 
     function isBlacklisted(address account) external view override returns (bool) {
         return _blacklistedAddresses[account];
