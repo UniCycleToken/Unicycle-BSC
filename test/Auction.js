@@ -6,7 +6,6 @@ const { expect } = require('chai');
 const UNICToken = artifacts.require('UNICToken');
 const Auction = artifacts.require('Auction');
 contract('AUCTION test', async ([owner, alice, bob]) => {
-
   beforeEach(async () => {
     const startTime = await time.latest();
     this.unic = await UNICToken.new({ from: owner });
@@ -16,6 +15,10 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
   it('auction constructor should fail', async () => {
     const startTime = await time.latest();
     await expectRevert(Auction.new(constants.ZERO_ADDRESS, startTime, owner, { from: owner }), 'ZERO ADDRESS');
+  });
+
+  it('checking getUnicAddress', async () => {
+    expect(await this.auction.getUnicAddress()).to.equal(this.unic.address);
   });
 
   describe('check participate/unlock', async () => {
@@ -38,6 +41,10 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
 
     it('participate negative', async () => {
       await expectRevert(this.auction.participate({ from: alice, value: ether('0') }), 'Insufficient participation');
+    });
+
+    it('should fail unlocking the same day as partcipating', async () => {
+      await expectRevert(this.auction.unlockTokens(await this.auction.getLastMintTime(), alice, { from: alice }), 'At least 1 day must pass');
     });
 
     it('unlock positive', async () => {

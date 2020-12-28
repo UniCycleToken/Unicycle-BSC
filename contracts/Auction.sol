@@ -14,25 +14,17 @@ contract Auction is Context, Ownable {
         uint256 lastUnlockTime;
     }
 
-    struct UserStake {
-        uint256 amount;
-        uint256 stakeTime;
-    }
-
-    struct UserLPStake {
-        uint256 amount;
-        uint256 stakeTime;
-    }
-
     uint256 private constant DAILY_MINT_CAP = 2_500_000 * 10 ** 18;
     uint256 private constant SECONDS_IN_DAY = 86400;
 
-    mapping(address => UserStake[]) private userStakes;
-    mapping(address => UserLPStake[]) private userLPStakes;
+    mapping(address => uint256[]) private userParticipateTimes;
+    mapping(address => uint256[]) private userStakeTimes;
+    mapping(address => uint256[]) private userLPStakeTimes;
+
+    uint256 private _lastStakeTime;
+    uint256 private _lastLPStakeTime;
 
     uint256[] private _mintTimes;
-    uint256[] private _stakeTimes;
-    uint256[] private _lpStakeTimes;
     // timestamp => address => data
     mapping(uint256 => mapping(address => uint256)) private _dailyParticipatedETH;
     mapping(uint256 => mapping(address => uint256)) private _dailyStakedUnic;
@@ -59,34 +51,24 @@ contract Auction is Context, Ownable {
         _teamAddress = teamAddress;
         _setLastMintTime(mintTime);
         _isFirstDayETHTaken = false;
+        _lastStakeTime = mintTime;
+        _lastLPStakeTime = mintTime;
     }
 
-    function getUserStakesData(address user, uint256 index) external view returns (uint256, uint256) {
-        return (userStakes[user][index].amount, userStakes[user][index].stakeTime);
+    function getUserParticipatesData(address user) external view returns (uint256[] memory) {
+        return userParticipateTimes[user];
     }
 
-    function getUserStakesDataLength(address user) external view returns (uint256) {
-        return userStakes[user].length;
+    function getUserStakesData(address user) external view returns (uint256[] memory) {
+        return userStakeTimes[user];
     }
 
-    function getUserLPStakesData(address user, uint256 index) external view returns (uint256, uint256) {
-        return (userLPStakes[user][index].amount, userLPStakes[user][index].stakeTime);
-    }
-
-    function getUserLPStakesDataLength(address user) external view returns (uint256) {
-        return userLPStakes[user].length;
+    function getUserLPStakesData(address user) external view returns (uint256[] memory) {
+        return userLPStakeTimes[user];
     }
 
     function getUnicAddress() external view returns (address) {
         return address(_unicToken);
-    } 
-
-    function getDailyTotalStakes(uint256 index) external view returns (uint256) {
-        return _stakeTimes[index];
-    }
-
-    function getStakeTimesLength() external view returns (uint256) {
-        return _stakeTimes.length;
     }
 
     function getTeamInfo() external onlyOwner view returns (uint256, address) {
@@ -98,11 +80,11 @@ contract Auction is Context, Ownable {
     }
 
     function getAccumulativeUnic() external view returns (uint256) {
-        return _accumulativeStakedUnic[getLastStakeTime()];
+        return _accumulativeStakedUnic[_lastStakeTime];
     }
 
     function getAccumulativeLP() external view returns (uint256) {
-        return _accumulativeStakedLP[getLastLPStakeTime()];
+        return _accumulativeStakedLP[_lastLPStakeTime];
     }
 
     function getMintTimesLength() external view returns (uint256) {
@@ -120,10 +102,6 @@ contract Auction is Context, Ownable {
     function getStakedLP(uint256 stakeTime, address user) external view returns (uint256) {
         return _LPStakes[stakeTime][user].amount;
     }
-
-    // function getDailyTotalStakedLP(uint256 stakeTime) external view returns (uint256) {
-    //     return accumulativeStakedLP[stakeTime];
-    // }
 
     function getTotalParticipateAmount(address user) external view returns (uint256) {
         uint256 totalEth;
@@ -161,20 +139,6 @@ contract Auction is Context, Ownable {
         return _mintTimes[_mintTimes.length - 1];
     }
 
-    function getLastStakeTime() public view returns (uint256) {
-        if (_stakeTimes.length > 0) {
-            return _stakeTimes[_stakeTimes.length - 1];
-        }
-        return 0;
-    }
-
-    function getLastLPStakeTime() public view returns (uint256) {
-        if (_lpStakeTimes.length > 0) {
-            return _lpStakeTimes[_lpStakeTimes.length - 1];
-        }
-        return 0;
-    }
-
     function takeTeamETHShare() external onlyOwner {
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
@@ -198,44 +162,49 @@ contract Auction is Context, Ownable {
         _dailyTotalParticipatedETH[lastMintTime] = _dailyTotalParticipatedETH[lastMintTime].add(msg.value);
         _dailyParticipatedETH[lastMintTime][_msgSender()] = _dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
         _teamETHShare = _teamETHShare.add(msg.value.div(20));
+        if (userParticipateTimes[_msgSender()].length > 0) {
+            if (userParticipateTimes[_msgSender()][userParticipateTimes[_msgSender()].length - 1] != lastMintTime) {
+                userParticipateTimes[_msgSender()].push(lastMintTime);
+            }
+        } else {
+            userParticipateTimes[_msgSender()].push(lastMintTime);
+        }
     }
 
     function unlockTokens(uint256 mintTime, address user) external {
         require(_dailyParticipatedETH[mintTime][user] > 0, "Nothing to unlock");
-        require(mintTime.add(SECONDS_IN_DAY) < block.timestamp);
+        require(mintTime.add(SECONDS_IN_DAY) < block.timestamp, "At least 1 day must pass");
         uint256 participatedAmount = _dailyParticipatedETH[mintTime][user];
         delete _dailyParticipatedETH[mintTime][user];
         uint256 unicSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedETH[mintTime]);
+        for (uint256 i = 0; i < userParticipateTimes[user].length; i++) {
+            if (userParticipateTimes[user][i] == mintTime) {
+                userParticipateTimes[user][i] = userParticipateTimes[user][userParticipateTimes[user].length - 1];
+                userParticipateTimes[user].pop();
+            }
+        }
         _unicToken.transfer(user, participatedAmount.mul(unicSharePayout));
     }
 
     function stake(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
-        uint256 lastStakeTime = getLastStakeTime();
-        if (stakeTime > lastStakeTime) {
-            _accumulativeStakedUnic[stakeTime] = _accumulativeStakedUnic[lastStakeTime];
+        // uint256 lastStakeTime = getLastStakeTime();
+        if (stakeTime > _lastStakeTime) {
+            _accumulativeStakedUnic[stakeTime] = _accumulativeStakedUnic[_lastStakeTime];
         }
         _accumulativeStakedUnic[stakeTime] = _accumulativeStakedUnic[stakeTime].add(amount);
         _dailyStakedUnic[stakeTime][_msgSender()] = _dailyStakedUnic[stakeTime][_msgSender()].add(amount);
-        _stakeTimes.push(stakeTime);
+        _lastStakeTime = stakeTime;
         uint256 fivePercentOfStake = amount.div(20);
         _unicToken.transferFrom(_msgSender(), address(this), amount);
         _unicToken.burn(amount.sub(fivePercentOfStake));
-        UserStake memory userStake;
-        if (userStakes[_msgSender()].length > 0) {
-            userStake = userStakes[_msgSender()][userStakes[_msgSender()].length - 1];
-            if (userStake.stakeTime == stakeTime) {
-                userStakes[_msgSender()][userStakes[_msgSender()].length - 1].amount = userStake.amount.add(amount);
-            } else {
-                userStake.amount = amount;
-                userStake.stakeTime = stakeTime;
-                userStakes[_msgSender()].push(userStake);
+        if (userStakeTimes[_msgSender()].length > 0) {
+            if (userStakeTimes[_msgSender()][userStakeTimes[_msgSender()].length - 1] != stakeTime) {
+                userStakeTimes[_msgSender()].push(stakeTime);
             }
         } else {
-                userStake.amount = amount;
-                userStake.stakeTime = stakeTime;
-                userStakes[_msgSender()].push(userStake);
+            userStakeTimes[_msgSender()].push(stakeTime);
         }
         emit Stake(amount, stakeTime, _msgSender());
     }
@@ -244,14 +213,13 @@ contract Auction is Context, Ownable {
         require(_dailyStakedUnic[stakeTime][user] > 0, "Nothing to unstake");
         require(stakeTime.add(SECONDS_IN_DAY) < block.timestamp, 'At least 1 day must pass');
         uint256 unstakeRewardAmount = _calculateUnicStakeReward(stakeTime, user);
-        uint256 lastStakeTime = getLastStakeTime();
         delete _dailyStakedUnic[stakeTime][user];
         user.transfer(unstakeRewardAmount);
-        _accumulativeStakedUnic[lastStakeTime] = _accumulativeStakedUnic[lastStakeTime].sub(_dailyStakedUnic[stakeTime][user]);
-        for (uint256 i = 0; i < userStakes[user].length; i++) {
-            if (userStakes[user][i].stakeTime == stakeTime) {
-                userStakes[user][i] = userStakes[user][userStakes[user].length - 1];
-                userStakes[user].pop();
+        _accumulativeStakedUnic[_lastStakeTime] = _accumulativeStakedUnic[_lastStakeTime].sub(_dailyStakedUnic[stakeTime][user]);
+        for (uint256 i = 0; i < userStakeTimes[user].length; i++) {
+            if (userStakeTimes[user][i] == stakeTime) {
+                userStakeTimes[user][i] = userStakeTimes[user][userStakeTimes[user].length - 1];
+                userStakeTimes[user].pop();
             }
         }
         emit Unstake(unstakeRewardAmount, stakeTime, user);
@@ -261,29 +229,20 @@ contract Auction is Context, Ownable {
         require(_unicToken.isBlacklisted(token), 'Token is not supported');
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
-        uint256 lastLPStakeTime = getLastLPStakeTime();
-        if (stakeTime > lastLPStakeTime) {
-            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[lastLPStakeTime];
+        if (stakeTime > _lastLPStakeTime) {
+            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[_lastLPStakeTime];
         }
         _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[stakeTime].add(amount);
         LPStake storage staker = _LPStakes[stakeTime][_msgSender()];
         staker.amount = staker.amount.add(amount);
         staker.lastUnlockTime = stakeTime;
-        _lpStakeTimes.push(stakeTime);
-        UserLPStake memory userLPStake;
-        if (userLPStakes[_msgSender()].length > 0) {
-            userLPStake = userLPStakes[_msgSender()][userLPStakes[_msgSender()].length - 1];
-            if (userLPStake.stakeTime == stakeTime) {
-                userLPStakes[_msgSender()][userLPStakes[_msgSender()].length - 1].amount = userLPStake.amount.add(amount);
-            } else {
-                userLPStake.amount = amount;
-                userLPStake.stakeTime = stakeTime;
-                userLPStakes[_msgSender()].push(userLPStake);
+        _lastLPStakeTime = stakeTime;
+        if (userLPStakeTimes[_msgSender()].length > 0) {
+            if (userLPStakeTimes[_msgSender()][userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
+                userLPStakeTimes[_msgSender()].push(stakeTime);
             }
         } else {
-                userLPStake.amount = amount;
-                userLPStake.stakeTime = stakeTime;
-                userLPStakes[_msgSender()].push(userLPStake);
+            userLPStakeTimes[_msgSender()].push(stakeTime);
         }
         IERC20(token).transferFrom(_msgSender(), address(this), amount);
     }

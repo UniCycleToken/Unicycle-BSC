@@ -166,7 +166,7 @@ contract('Integration test', async ([owner, alice, bob]) => {
     expect(await this.auction.canUnstake(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
   });
   
-  it('check allUserStakesData mapping updating correctly', async () => {
+  it('check userStakeTimes mapping updating correctly', async () => {
     const startTime = (await this.auction.getLastMintTime()).toNumber();
     // prepare for staking
     await time.increase(time.duration.days(2)); // startTime + 86400 * 2,
@@ -174,40 +174,61 @@ contract('Integration test', async ([owner, alice, bob]) => {
     await time.increase(time.duration.days(1)); // startTime + 86400 * 3,
     await this.auction.unlockTokens(startTime + 86400 * 2, owner, { from: owner });
     await this.unic.approve(this.auction.address, ether('500000'), { from: owner });
-    expect(await this.auction.getUserStakesDataLength(owner, { from: owner })).to.be.bignumber.equal(new BN('0'));
+    expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(0);
     // checking adding to mapping
     await this.auction.stake(ether('100000'), { from: owner });
-    expect(await this.auction.getUserStakesDataLength(owner, { from: owner })).to.be.bignumber.equal(new BN('1'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[0]).to.be.bignumber.equal(ether('100000'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
+    expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(1);
+    expect((await this.auction.getUserStakesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
     await this.auction.stake(ether('100000'), { from: owner });
-    expect(await this.auction.getUserStakesDataLength(owner, { from: owner })).to.be.bignumber.equal(new BN('1'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[0]).to.be.bignumber.equal(ether('200000'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
+    expect((await this.auction.getUserStakesData(owner, { from: owner })).length).equal(1);
+    expect((await this.auction.getUserStakesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
     await time.increase(time.duration.days(1)); // startTime + 86400 * 4,
     await this.auction.stake(ether('100000'), { from: owner });
-    expect(await this.auction.getUserStakesDataLength(owner, { from: owner })).to.be.bignumber.equal(new BN('2'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[0]).to.be.bignumber.equal(ether('200000'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
-    expect((await this.auction.getUserStakesData(owner, 1, { from: owner }))[0]).to.be.bignumber.equal(ether('100000'));
-    expect((await this.auction.getUserStakesData(owner, 1, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 4).toString()));
+    expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(2);
+    expect((await this.auction.getUserStakesData(owner, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 4).toString()));
     await this.auction.stake(ether('50000'), { from: owner });
-    expect(await this.auction.getUserStakesDataLength(owner, { from: owner })).to.be.bignumber.equal(new BN('2'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[0]).to.be.bignumber.equal(ether('200000'));
-    expect((await this.auction.getUserStakesData(owner, 0, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
-    expect((await this.auction.getUserStakesData(owner, 1, { from: owner }))[0]).to.be.bignumber.equal(ether('150000'));
-    expect((await this.auction.getUserStakesData(owner, 1, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 4).toString()));
+    expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(2);
+    expect((await this.auction.getUserStakesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
+    expect((await this.auction.getUserStakesData(owner, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 4).toString()));
     for (let i = 0; i < 100; i += 1) {
       // eslint-disable-next-line no-await-in-loop
       await time.increase(time.duration.days(1));
       // eslint-disable-next-line no-await-in-loop
       await this.auction.stake(ether('50'), { from: owner });
     }
-    expect(await this.auction.getUserStakesDataLength(owner, { from: owner })).to.be.bignumber.equal(new BN('102'));
+    expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(102);
+    expect((await this.auction.getUserStakesData(owner, { from: owner }))[101]).to.be.bignumber.equal(new BN((startTime + 86400 * 104).toString()));
     // checking deleting from mapping
     await this.auction.unstake(startTime + 86400 * 4, owner, { from: owner });
-    expect(await this.auction.getUserStakesDataLength(owner, { from: owner })).to.be.bignumber.equal(new BN('101'));
-    expect((await this.auction.getUserStakesData(owner, 1, { from: owner }))[0]).to.be.bignumber.equal(ether('50'));
-    expect((await this.auction.getUserStakesData(owner, 1, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 104).toString()));
+    expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(101);
+    expect((await this.auction.getUserStakesData(owner, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 104).toString()));
+  });
+
+  it('check userParticipateTimes mapping updating correctly', async () => {
+    const startTime = (await this.auction.getLastMintTime()).toNumber();
+    // prepare for staking
+    // checking adding to mapping
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner })).length).to.equal(0);
+    await this.auction.participate({ from: owner, value: ether('1') });
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner })).length).to.equal(1);
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime).toString()));
+    await this.auction.participate({ from: owner, value: ether('1') });
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner })).length).to.equal(1);
+    await time.increase(time.duration.days(1));
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner })).length).to.equal(1);
+    await this.auction.participate({ from: owner, value: ether('1') });
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner })).length).to.equal(2);
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400).toString()));
+
+    for (let i = 0; i < 10; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await time.increase(time.duration.days(1));
+      // eslint-disable-next-line no-await-in-loop
+      await this.auction.participate({ from: owner, value: ether('1') });
+    }
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner })).length).to.equal(12);
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner }))[11]).to.be.bignumber.equal(new BN((startTime + 86400 * 11).toString()));
+    await this.auction.unlockTokens(startTime, owner, { from: owner });
+    expect((await this.auction.getUserParticipatesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime + 86400 * 11).toString()));
   });
 });
