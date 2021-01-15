@@ -24,7 +24,7 @@ contract('CYCLE test', async ([owner, burner, holder]) => {
   });
 
   it('checking the cycle token parameters', async () => {
-    expect(await this.cycle.name.call()).to.equal('CYCLEToken');
+    expect(await this.cycle.name.call()).to.equal('UniCycle');
     expect(await this.cycle.symbol.call()).to.equal('CYCLE');
     expect(await this.cycle.decimals.call()).to.be.bignumber.equal(new BN('18'));
     expect(await this.cycle.totalSupply.call()).to.be.bignumber.equal(new BN('0'));

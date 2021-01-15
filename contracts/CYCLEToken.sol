@@ -22,7 +22,7 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _;
     }
 
-    constructor () public ERC20("CYCLEToken", "CYCLE") {}
+    constructor () public ERC20("UniCycle", "CYCLE") {}
 
     function isBlacklisted(address account) external view override returns (bool) {
         return _blacklistedAddresses[account];
