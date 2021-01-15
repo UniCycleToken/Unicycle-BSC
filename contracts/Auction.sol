@@ -15,6 +15,8 @@ contract Auction is Context, Ownable {
     }
 
     uint256 private constant DAILY_MINT_CAP = 100_000 * 10 ** 18;
+    uint256 private constant FIRST_DAY_HARD_CAP = 1_500 * 10 ** 18;
+    uint256 private constant FIRST_DAY_WALLET_CAP = 15 * 10 ** 18;
     uint256 private constant SECONDS_IN_DAY = 86400;
 
     mapping(address => uint256[]) private userParticipateTimes;
@@ -159,7 +161,10 @@ contract Auction is Context, Ownable {
             uint256 newLastMintTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
             _startNextRound(newLastMintTime);
             lastMintTime = getLastMintTime();
-        }
+        } else if (_mintTimes.length == 1) {
+            require(_dailyTotalParticipatedETH[lastMintTime].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
+            require(_dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
+        } 
         _dailyTotalParticipatedETH[lastMintTime] = _dailyTotalParticipatedETH[lastMintTime].add(msg.value);
         _dailyParticipatedETH[lastMintTime][_msgSender()] = _dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
         _teamETHShare = _teamETHShare.add(msg.value.div(20));

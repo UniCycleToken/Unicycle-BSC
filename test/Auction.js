@@ -21,6 +21,10 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await this.auction.getCycleAddress()).to.equal(this.cycle.address);
   });
 
+  it('participate first day wallet cap negative', async () => {
+    await expectRevert(this.auction.participate({ from: alice, value: ether('16') }), 'First day wallet cap reached');
+  });
+
   describe('check participate/unlock', async () => {
     beforeEach(async () => {
       await time.increase(time.duration.days(1));
