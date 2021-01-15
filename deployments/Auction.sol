@@ -497,9 +497,9 @@ contract Auction is Context, Ownable {
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
         if(!_isFirstDayETHTaken) {
-            _cycleToken.mint(100000);
+            _cycleToken.mint(DAILY_MINT_CAP);
             teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100));
-            _cycleToken.transfer(_teamAddress, 100000);
+            _cycleToken.transfer(_teamAddress, DAILY_MINT_CAP);
             _isFirstDayETHTaken = true;
         }
         _teamAddress.transfer(teamETHShare);
