@@ -1,26 +1,19 @@
 pragma solidity >= 0.6.0 < 0.7.0;
 
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v2.5.0/contracts/ownership/Ownable.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/ERC20.sol";
-import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol";
-
-interface ICycleToken is IERC20 {
-    function mint(uint256 amount) external;
-    function burn(uint256 amount) external;
-    function isBlacklisted(address account) view external returns (bool);
-    function setAuction(address account) external;
-}
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./Interfaces.sol";
 
 contract CYCLEToken is ICycleToken, ERC20, Ownable {
     using SafeMath for uint256;
 
+    address public auctionAddress;
+
     mapping(address => bool) private _blacklistedAddresses;
 
-    address private _auctionAddress;
-    address public tokenPair;
-
     modifier onlyAuction() {
-        require(_msgSender() == _auctionAddress, "Caller is not auction");
+        require(_msgSender() == auctionAddress, "Caller is not auction");
         _;
     }
 
@@ -35,26 +28,17 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         return _blacklistedAddresses[account];
     }
 
-    function setAuction(address auctionAddress) external override onlyOwner {
-        require(auctionAddress != address(0), "Zero address");
-        _auctionAddress = auctionAddress;
+    function setAuction(address auction) external override onlyOwner {
+        require(auction != address(0), "Zero address");
+        auctionAddress = auction;
     }
 
     function mint(uint256 amount) external override onlyAuction {
-        _mint(_auctionAddress, amount);
+        _mint(auctionAddress, amount);
     }
 
     function burn(uint256 amount) external override onlyAuction {
-        _burn(_auctionAddress, amount);
-    }
-    
-    function transfer(uint256 amount) external override {
-        uint _LPSupplyOfCYCLEETHPairTotal = IERC20(tokenPair).totalSupply();
-        if(sender == tokenPair) {
-            require(lastTotalSupplyOfCYCLEETHLPTokens <= _LPSupplyOfCYCLEETHPairTotal, "Liquidity withdrawals forbidden for CYCLE/ETH pair");
-        }
-        _transfer(amount);
-        lastTotalSupplyOfDFGETHLPTokens = _LPSupplyOfDFGETHPairTotal;
+        _burn(auctionAddress, amount);
     }
 
     function addToBlacklist(address account) external onlyOwner onlyIfNotBlacklisted(account) {
@@ -68,11 +52,5 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
 
     function _beforeTokenTransfer(address from, address, uint256) internal override onlyIfNotBlacklisted(from) {
         // solium-disable-previous-line no-empty-blocks
-    }
-
-    function sync(address _tokenPair) external onlyOwner {
-        tokenPair = _tokenPair;
-        uint _LPSupplyOfDFGETHPairTotalPairTotal = IERC20(tokenUniswapPairDFGETH).totalSupply();
-        lastTotalSupplyOfDFGETHLPTokens = _LPSupplyOfDFGETHPairTotalPairTotal;
     }
 }
