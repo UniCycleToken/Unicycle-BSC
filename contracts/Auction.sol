@@ -44,8 +44,9 @@ contract Auction is Context, Ownable {
 
     ICycleToken private _cycleToken;
 
+    event Participate(uint256 amount, uint256 participateTime, address account);
     event Stake(uint256 amount, uint256 stakeTime, address account);
-    event Unstake(uint256 reward, uint256 stakeTime, address account);
+    event Unstake(uint256 reward, uint256 unstakeTime, address account);
 
     constructor(address cycleTokenAddress, uint256 mintTime, address payable teamAddress) public {
         require(cycleTokenAddress != address(0), "ZERO ADDRESS");
@@ -175,6 +176,7 @@ contract Auction is Context, Ownable {
         } else {
             userParticipateTimes[_msgSender()].push(lastMintTime);
         }
+        emit Participate(amount, lastMintTime, _msgSender());
     }
 
     function unlockTokens(uint256 mintTime, address user) external {
