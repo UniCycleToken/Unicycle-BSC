@@ -176,7 +176,7 @@ contract Auction is Context, Ownable {
         } else {
             userParticipateTimes[_msgSender()].push(lastMintTime);
         }
-        emit Participate(amount, lastMintTime, _msgSender());
+        emit Participate(msg.value, lastMintTime, _msgSender());
     }
 
     function unlockTokens(uint256 mintTime, address user) external {
