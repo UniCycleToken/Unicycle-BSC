@@ -38,9 +38,9 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       expect((await this.auction.getTeamInfo({ from: owner }))[1]).to.equal(owner);
     });
 
-    it('takeTeamEthShare should fail', async () => {
-      await expectRevert(this.auction.takeTeamETHShare({ from: owner }), 'Wait one day to take your share');
-    });
+    // it('takeTeamEthShare should fail', async () => {
+    //   await expectRevert(this.auction.takeTeamETHShare({ from: owner }), 'Wait one day to take your share');
+    // });
 
     it('participate positive', async () => {
       expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('1'));

@@ -35,9 +35,7 @@ contract Auction is Context, Ownable {
     mapping(uint256 => uint256) private _dailyTotalParticipatedETH;
     mapping(uint256 => uint256) private _accumulativeStakedCycle;
     mapping(uint256 => uint256) private _accumulativeStakedLP;
-    
-    
-   
+
     address payable private _teamAddress;
     uint256 private _teamETHShare;
     bool private _isFirstDayETHTaken;
@@ -45,8 +43,11 @@ contract Auction is Context, Ownable {
     ICycleToken private _cycleToken;
 
     event Participate(uint256 amount, uint256 participateTime, address account);
+    event TakeShare(uint256 reward, uint256 participateTime, address account);
     event Stake(uint256 amount, uint256 stakeTime, address account);
-    event Unstake(uint256 reward, uint256 unstakeTime, address account);
+    event Unstake(uint256 reward, uint256 stakeTime, address account);
+    event StakeLP(uint256 amount, uint256 stakeTime, address account);
+    event UnstakeLP(uint256 reward, uint256 stakeTime, address account);
 
     constructor(address cycleTokenAddress, uint256 mintTime, address payable teamAddress) public {
         require(cycleTokenAddress != address(0), "ZERO ADDRESS");
@@ -133,26 +134,12 @@ contract Auction is Context, Ownable {
             uint256 lpStakeReward;
             (lpStakeReward,) = _calculateLPStakeReward(stakeTime);
             return lpStakeReward;
-            
         }
         return 0;
     }
 
     function getLastMintTime() public view returns (uint256) {
         return _mintTimes[_mintTimes.length - 1];
-    }
-
-    function takeTeamETHShare() external onlyOwner {
-        require(_mintTimes[1].add(86400) < block.timestamp, 'Wait one day to take your share');
-        uint256 teamETHShare = _teamETHShare;
-        _teamETHShare = 0;
-        if(!_isFirstDayETHTaken) {
-            _cycleToken.mint(DAILY_MINT_CAP);
-            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100));
-            _cycleToken.transfer(_teamAddress, DAILY_MINT_CAP);
-            _isFirstDayETHTaken = true;
-        }
-        _teamAddress.transfer(teamETHShare);
     }
 
     function participate() external payable {
@@ -162,6 +149,7 @@ contract Auction is Context, Ownable {
             uint256 newLastMintTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
             _startNextRound(newLastMintTime);
             lastMintTime = getLastMintTime();
+            _takeTeamETHShare();
         } else if (_mintTimes.length == 1) {
             require(_dailyTotalParticipatedETH[lastMintTime].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
             require(_dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
@@ -312,6 +300,20 @@ contract Auction is Context, Ownable {
             lastUnlockTime = lastUnlockTime.add(SECONDS_IN_DAY);
         }
         return (lpStakeReward, lastUnlockTime.sub(SECONDS_IN_DAY));
+    }
+
+    function _takeTeamETHShare() private {
+        uint256 teamETHShare = _teamETHShare;
+        _teamETHShare = 0;
+        if (!_isFirstDayETHTaken && _mintTimes[1].add(SECONDS_IN_DAY) < block.timestamp) {
+            // mint tokens for first day
+            _cycleToken.mint(DAILY_MINT_CAP);
+            // (5% + 95%) / 2
+            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100));
+            _cycleToken.transfer(_teamAddress, 100_000 * 10 ** 18);
+            _isFirstDayETHTaken = true;
+        }
+        _teamAddress.transfer(teamETHShare);
     }
 
     function _setLastMintTime(uint256 mintTime) private {

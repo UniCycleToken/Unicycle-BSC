@@ -17,7 +17,8 @@ contract('LP related test', async ([owner, alice, bob]) => {
     this.weth = await WETH.new({ from: owner });
     this.factory = await UniswapV2Factory.new(owner, { from: owner });
     await this.factory.createPair(this.weth.address, this.cycle.address);
-    this.auction = await Auction.new(this.cycle.address, auctionStartTime, owner, { from: owner });
+    this.team = web3.eth.accounts.create();
+    this.auction = await Auction.new(this.cycle.address, auctionStartTime, this.team.address, { from: owner });
     await this.cycle.setAuction(this.auction.address, { from: owner });
     this.router = await UniswapV2Router02.new(this.factory.address, this.weth.address, { from: owner });
   });
