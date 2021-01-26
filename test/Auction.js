@@ -3,8 +3,11 @@ const {
 } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
+const { cycle } = require('./Utils');
+
 const CYCLEToken = artifacts.require('CYCLEToken');
 const Auction = artifacts.require('Auction');
+
 contract('AUCTION test', async ([owner, alice, bob]) => {
   beforeEach(async () => {
     const startTime = await time.latest();
@@ -28,10 +31,10 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
   describe('check participate/unlock', async () => {
     beforeEach(async () => {
       await time.increase(time.duration.days(1));
-      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
+      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('0'));
       await this.auction.participate({ from: alice, value: ether('1') });
       await this.auction.participate({ from: bob, value: ether('4') });
-      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('100000'));
+      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('100000'));
     });
 
     it('check team address', async () => {
@@ -59,8 +62,8 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       await time.increase(time.duration.days(1));
       await this.auction.takeShare(await this.auction.getLastMintTime(), alice, { from: alice });
       await this.auction.takeShare(await this.auction.getLastMintTime(), bob, { from: bob });
-      expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('20000'));
-      expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('80000'));
+      expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(cycle('20000'));
+      expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(cycle('80000'));
     });
 
     it('unlock negative', async () => {
@@ -70,31 +73,31 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
 
   describe('stake tests', async () => {
     beforeEach(async () => {
-      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
+      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('0'));
       await time.increase(time.duration.days(1));
       await this.auction.participate({ from: alice, value: ether('1') });
       await this.auction.participate({ from: bob, value: ether('4') });
       await time.increase(time.duration.days(1));
       await this.auction.takeShare(await this.auction.getLastMintTime(), alice, { from: alice });
       await this.auction.takeShare(await this.auction.getLastMintTime(), bob, { from: bob });
-      expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('20000'));
-      expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('80000'));
-      await this.cycle.approve(this.auction.address, ether('20000'), { from: alice });
-      await this.cycle.approve(this.auction.address, ether('20000'), { from: bob });
+      expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(cycle('20000'));
+      expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(cycle('80000'));
+      await this.cycle.approve(this.auction.address, cycle('20000'), { from: alice });
+      await this.cycle.approve(this.auction.address, cycle('20000'), { from: bob });
       // stake tokens
-      await this.auction.stake(ether('8000'), { from: bob });
-      await this.auction.stake(ether('8000'), { from: alice });
-      await this.auction.stake(ether('4000'), { from: alice });
+      await this.auction.stake(cycle('8000'), { from: bob });
+      await this.auction.stake(cycle('8000'), { from: alice });
+      await this.auction.stake(cycle('4000'), { from: alice });
     });
 
     it('stake positive', async () => {
       const startTime = (await this.auction.getLastMintTime()).toNumber();
-      expect(await this.auction.getStakedCycle(startTime + 86400, alice, { from: alice })).to.be.bignumber.equal(ether('12000'));
-      expect(await this.auction.getStakedCycle(startTime + 86400, bob, { from: bob })).to.be.bignumber.equal(ether('8000'));
-      expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('8000'));
-      expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('72000'));
+      expect(await this.auction.getStakedCycle(startTime + 86400, alice, { from: alice })).to.be.bignumber.equal(cycle('12000'));
+      expect(await this.auction.getStakedCycle(startTime + 86400, bob, { from: bob })).to.be.bignumber.equal(cycle('8000'));
+      expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(cycle('8000'));
+      expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(cycle('72000'));
       // 5% of staked cycle
-      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('1000'));
+      expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('1000'));
     });
 
     it('stake negative', async () => {
@@ -107,11 +110,11 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       await expectRevert(this.auction.unstake(startTime + 86400, alice, { from: alice }), 'At least 1 day must pass');
       // a day has not passed
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
-      expect(await this.auction.getStakedCycle(startTime + 86400, alice, { from: alice })).to.be.bignumber.equal(ether('12000'));
+      expect(await this.auction.getStakedCycle(startTime + 86400, alice, { from: alice })).to.be.bignumber.equal(cycle('12000'));
       await expectRevert(this.auction.unstake(startTime + 86400, bob, { from: bob }), 'At least 1 day must pass');
       // a day has not passed
       expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('5'));
-      expect(await this.auction.getStakedCycle(startTime + 86400, bob, { from: bob })).to.be.bignumber.equal(ether('8000'));
+      expect(await this.auction.getStakedCycle(startTime + 86400, bob, { from: bob })).to.be.bignumber.equal(cycle('8000'));
     });
   });
 });

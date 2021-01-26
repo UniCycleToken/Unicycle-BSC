@@ -3,6 +3,8 @@ const {
 } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
+const { cycle } = require('./Utils');
+
 const CYCLEToken = artifacts.require('CYCLEToken');
 const Auction = artifacts.require('Auction');
 const WETH = artifacts.require('WETH9');
@@ -39,10 +41,10 @@ contract('LP related test', async ([owner, alice, bob]) => {
     await time.increase(time.duration.days(1));
     await this.auction.takeShare(startTime + 86400 * 2, owner, { from: owner });
     await this.auction.takeShare(startTime + 86400 * 2, alice, { from: alice });
-    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(ether('50000'));
-    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('50000'));
+    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(cycle('50000'));
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(cycle('50000'));
     const blockTime = await time.latest();
-    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), ether('10'), 0, 0, owner, blockTime + 30, { from: owner });
+    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), cycle('10'), 0, 0, owner, blockTime + 30, { from: owner });
     const lpTokenAddress = await this.factory.getPair(this.weth.address, this.cycle.address);
     this.lpToken = await UniswapV2Pair.at(lpTokenAddress);
     await this.lpToken.approve(this.router.address, ether('10'), { from: owner });
@@ -50,7 +52,7 @@ contract('LP related test', async ([owner, alice, bob]) => {
     expect(await this.cycle.isBlacklisted(lpTokenAddress)).to.equal(false);
     await this.cycle.addToBlacklist(lpTokenAddress);
     expect(await this.cycle.isBlacklisted(lpTokenAddress)).to.equal(true);
-    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), ether('10'), 0, 0, owner, blockTime + 90, { from: owner });
+    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), cycle('10'), 0, 0, owner, blockTime + 90, { from: owner });
     await expectRevert(this.router.removeLiquidity(this.weth.address, this.cycle.address, ether('1'), 0, 0, owner, blockTime + 120, { from: owner }), 'UniswapV2: TRANSFER_FAILED');
     await this.cycle.removeFromBlacklist(lpTokenAddress);
     await this.router.removeLiquidity(this.weth.address, this.cycle.address, ether('1'), 0, 0, owner, blockTime + 150, { from: owner });
@@ -62,30 +64,30 @@ contract('LP related test', async ([owner, alice, bob]) => {
     // prepare LPStake for owner
     await this.auction.participate({ from: owner, value: ether('1') });
     await this.weth.deposit({ from: owner, value: ether('30') });
-    await this.cycle.approve(this.router.address, ether('30'), { from: owner });
+    await this.cycle.approve(this.router.address, cycle('30'), { from: owner });
     await this.weth.approve(this.router.address, ether('30'), { from: owner });
     // prepare LPStake for alice
     await this.auction.participate({ from: alice, value: ether('1') });
     await this.weth.deposit({ from: alice, value: ether('30') });
-    await this.cycle.approve(this.router.address, ether('30'), { from: alice });
+    await this.cycle.approve(this.router.address, cycle('30'), { from: alice });
     await this.weth.approve(this.router.address, ether('30'), { from: alice });
     // prepare LPStake for Bob
     await this.auction.participate({ from: bob, value: ether('3') });
     await this.weth.deposit({ from: bob, value: ether('30') });
-    await this.cycle.approve(this.router.address, ether('30'), { from: bob });
+    await this.cycle.approve(this.router.address, cycle('30'), { from: bob });
     await this.weth.approve(this.router.address, ether('30'), { from: bob });
     await time.increase(time.duration.days(1));
     await this.auction.takeShare(startTime + 86400 * 2, owner, { from: owner });
     await this.auction.takeShare(startTime + 86400 * 2, alice, { from: alice });
     await this.auction.takeShare(startTime + 86400 * 2, bob, { from: bob });
-    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(ether('20000'));
-    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('20000'));
-    expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('60000'));
+    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(cycle('20000'));
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(cycle('20000'));
+    expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(cycle('60000'));
 
     const blockTime = await time.latest();
-    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), ether('10'), 0, 0, owner, blockTime + 30, { from: owner });
-    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), ether('10'), 0, 0, alice, blockTime + 30, { from: alice });
-    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), ether('10'), 0, 0, bob, blockTime + 30, { from: bob });
+    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), cycle('10'), 0, 0, owner, blockTime + 30, { from: owner });
+    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), cycle('10'), 0, 0, alice, blockTime + 30, { from: alice });
+    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), cycle('10'), 0, 0, bob, blockTime + 30, { from: bob });
     const lpTokenAddress = await this.factory.getPair(this.weth.address, this.cycle.address);
     this.lpToken = await UniswapV2Pair.at(lpTokenAddress);
     await this.lpToken.approve(this.auction.address, ether('10'), { from: owner });
@@ -112,8 +114,8 @@ contract('LP related test', async ([owner, alice, bob]) => {
       // eslint-disable-next-line no-await-in-loop
       await time.increase(time.duration.days(1));
     }
-    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('1000000'));
-    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(ether('19990'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('1000000'));
+    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(cycle('19990'));
     expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('10000'));
     expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 3));
     await expectRevert(this.auction.unstakeLP(startTime + 86400 * 2, owner, { from: owner }), 'Nothing to unlock');

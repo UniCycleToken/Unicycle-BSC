@@ -5,6 +5,8 @@ const {
 } = require('@openzeppelin/test-helpers');
 const { expect } = require('chai');
 
+const { cycle } = require('./Utils');
+
 const CYCLEToken = artifacts.require('CYCLEToken');
 const Auction = artifacts.require('Auction');
 
@@ -31,9 +33,9 @@ contract('CYCLE test', async ([owner, burner, holder]) => {
   });
 
   it('check startAuction => setStartTime and mint', async () => {
-    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('0'));
     await this.auction.participate({ from: owner, value: 100000 });
-    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('100000'));
+    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('100000'));
   });
 
   describe('check blacklist', async () => {
