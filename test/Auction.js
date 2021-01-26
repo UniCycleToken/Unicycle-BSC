@@ -52,19 +52,19 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     });
 
     it('should fail unlocking the same day as partcipating', async () => {
-      await expectRevert(this.auction.unlockTokens(await this.auction.getLastMintTime(), alice, { from: alice }), 'At least 1 day must pass');
+      await expectRevert(this.auction.takeShare(await this.auction.getLastMintTime(), alice, { from: alice }), 'At least 1 day must pass');
     });
 
     it('unlock positive', async () => {
       await time.increase(time.duration.days(1));
-      await this.auction.unlockTokens(await this.auction.getLastMintTime(), alice, { from: alice });
-      await this.auction.unlockTokens(await this.auction.getLastMintTime(), bob, { from: bob });
+      await this.auction.takeShare(await this.auction.getLastMintTime(), alice, { from: alice });
+      await this.auction.takeShare(await this.auction.getLastMintTime(), bob, { from: bob });
       expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('20000'));
       expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('80000'));
     });
 
     it('unlock negative', async () => {
-      await expectRevert(this.auction.unlockTokens(await this.auction.getLastMintTime(), owner, { from: owner }), 'Nothing to unlock');
+      await expectRevert(this.auction.takeShare(await this.auction.getLastMintTime(), owner, { from: owner }), 'Nothing to unlock');
     });
   });
 
@@ -75,8 +75,8 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       await this.auction.participate({ from: alice, value: ether('1') });
       await this.auction.participate({ from: bob, value: ether('4') });
       await time.increase(time.duration.days(1));
-      await this.auction.unlockTokens(await this.auction.getLastMintTime(), alice, { from: alice });
-      await this.auction.unlockTokens(await this.auction.getLastMintTime(), bob, { from: bob });
+      await this.auction.takeShare(await this.auction.getLastMintTime(), alice, { from: alice });
+      await this.auction.takeShare(await this.auction.getLastMintTime(), bob, { from: bob });
       expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('20000'));
       expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('80000'));
       await this.cycle.approve(this.auction.address, ether('20000'), { from: alice });

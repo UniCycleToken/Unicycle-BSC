@@ -18,8 +18,8 @@ contract('Integration test', async ([owner, alice, bob]) => {
   it('check participate and unlock after n day pause', async () => {
     const startTime = (await this.auction.getLastMintTime()).toNumber();
     await time.increase(time.duration.days(2)); // startTime + 86400 * 2,
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 2, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 2, bob, { from: bob })).to.be.bignumber.equal(ether('0'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 2, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 2, bob, { from: bob })).to.be.bignumber.equal(ether('0'));
     await this.auction.participate({ from: alice, value: ether('1') });
     expect(await this.auction.getParticipatedETHAmount(await this.auction.getLastMintTime(), alice, { from: alice })).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('2'));
@@ -29,8 +29,8 @@ contract('Integration test', async ([owner, alice, bob]) => {
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('3'));
     expect(await this.auction.getTotalParticipateAmount(alice, { from: alice })).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getTotalParticipateAmount(bob, { from: bob })).to.be.bignumber.equal(ether('2'));
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 2, alice, { from: alice })).to.be.bignumber.equal(ether('100000'));
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 3, bob, { from: bob })).to.be.bignumber.equal(ether('100000'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 2, alice, { from: alice })).to.be.bignumber.equal(ether('100000'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 3, bob, { from: bob })).to.be.bignumber.equal(ether('100000'));
     // 3 and 4 days pause
     await time.increase(time.duration.days(1)); // startTime + 86400 * 4,
     await this.auction.participate({ from: alice, value: ether('1') });
@@ -42,8 +42,8 @@ contract('Integration test', async ([owner, alice, bob]) => {
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('5'));
     expect(await this.auction.getTotalParticipateAmount(alice, { from: alice })).to.be.bignumber.equal(ether('2'));
     expect(await this.auction.getTotalParticipateAmount(bob, { from: bob })).to.be.bignumber.equal(ether('4'));
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 4, alice, { from: alice })).to.be.bignumber.equal(ether('100000'));
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 5, bob, { from: bob })).to.be.bignumber.equal(ether('100000'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 4, alice, { from: alice })).to.be.bignumber.equal(ether('100000'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 5, bob, { from: bob })).to.be.bignumber.equal(ether('100000'));
     // 5 days pause
     await time.increase(time.duration.days(1)); // startTime + 86400 * 6,
     await this.auction.participate({ from: alice, value: ether('1') });
@@ -54,25 +54,25 @@ contract('Integration test', async ([owner, alice, bob]) => {
     expect(await this.auction.getMintTimesLength()).to.be.bignumber.equal(new BN('6'));
     expect(await this.auction.getTotalParticipateAmount(alice, { from: alice })).to.be.bignumber.equal(ether('3'));
     expect(await this.auction.getTotalParticipateAmount(bob, { from: bob })).to.be.bignumber.equal(ether('8'));
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 6, alice, { from: alice })).to.be.bignumber.equal(ether('20000'));
-    expect(await this.auction.canUnlockTokens(startTime + 86400 * 6, bob, { from: bob })).to.be.bignumber.equal(ether('80000'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 6, alice, { from: alice })).to.be.bignumber.equal(ether('20000'));
+    expect(await this.auction.canTakeShare(startTime + 86400 * 6, bob, { from: bob })).to.be.bignumber.equal(ether('80000'));
     // a lot of tokens, cause no one unlocked yet
     expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('500000'));
     // await time.advanceBlock();
     // now unlock them one by one
-    // (await this.auction.canUnlockTokens(startTime + 86400 * 2, { from: alice }));
+    // (await this.auction.canTakeShare(startTime + 86400 * 2, { from: alice }));
     await time.increase(time.duration.days(4)); // startTime + 86400 * 10,
-    await this.auction.unlockTokens(startTime + 86400 * 2, alice, { from: alice });
+    await this.auction.takeShare(startTime + 86400 * 2, alice, { from: alice });
     // alice was the only one participating that day she took all cycles for the day
     expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('100000'));
-    await this.auction.unlockTokens(startTime + 86400 * 3, bob, { from: bob });
+    await this.auction.takeShare(startTime + 86400 * 3, bob, { from: bob });
     // bob was the only one participating that day he took all cycles for the day
     expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('100000'));
     // the balance of auction was subbed accordingly
     expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('300000'));
     // unlock the tokens from the last day when bob and alice participate together
-    await this.auction.unlockTokens(startTime + 86400 * 6, alice, { from: alice });
-    await this.auction.unlockTokens(startTime + 86400 * 6, bob, { from: bob });
+    await this.auction.takeShare(startTime + 86400 * 6, alice, { from: alice });
+    await this.auction.takeShare(startTime + 86400 * 6, bob, { from: bob });
     expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('120000'));
     expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('180000'));
     expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('200000'));
@@ -85,9 +85,9 @@ contract('Integration test', async ([owner, alice, bob]) => {
     await this.auction.participate({ from: alice, value: ether('1') });
     await this.auction.participate({ from: bob, value: ether('3') });
     await time.increase(time.duration.days(1)); // startTime + 86400,
-    await this.auction.unlockTokens(startTime + 86400 * 2, owner, { from: owner });
-    await this.auction.unlockTokens(startTime + 86400 * 2, alice, { from: alice });
-    await this.auction.unlockTokens(startTime + 86400 * 2, bob, { from: bob });
+    await this.auction.takeShare(startTime + 86400 * 2, owner, { from: owner });
+    await this.auction.takeShare(startTime + 86400 * 2, alice, { from: alice });
+    await this.auction.takeShare(startTime + 86400 * 2, bob, { from: bob });
     expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(ether('20000'));
     expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('20000'));
     expect(await this.cycle.balanceOf(bob)).to.be.bignumber.equal(ether('60000'));
@@ -145,7 +145,7 @@ contract('Integration test', async ([owner, alice, bob]) => {
     await time.increase(time.duration.days(2)); // startTime + 86400,
     await this.auction.participate({ from: alice, value: ether('1') });
     await time.increase(time.duration.days(1)); // startTime + 86400,
-    await this.auction.unlockTokens(startTime + 86400 * 2, alice, { from: alice });
+    await this.auction.takeShare(startTime + 86400 * 2, alice, { from: alice });
     expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('100000'));
     await this.cycle.approve(this.auction.address, ether('20000'), { from: alice });
     await this.auction.stake(ether('20000'), { from: alice });
@@ -172,7 +172,7 @@ contract('Integration test', async ([owner, alice, bob]) => {
     await time.increase(time.duration.days(2)); // startTime + 86400 * 2,
     await this.auction.participate({ from: owner, value: ether('1') });
     await time.increase(time.duration.days(1)); // startTime + 86400 * 3,
-    await this.auction.unlockTokens(startTime + 86400 * 2, owner, { from: owner });
+    await this.auction.takeShare(startTime + 86400 * 2, owner, { from: owner });
     await this.cycle.approve(this.auction.address, ether('20000'), { from: owner });
     expect((await this.auction.getUserStakesData(owner, { from: owner })).length).to.equal(0);
     // checking adding to mapping
@@ -228,7 +228,7 @@ contract('Integration test', async ([owner, alice, bob]) => {
     }
     expect((await this.auction.getUserParticipatesData(owner, { from: owner })).length).to.equal(12);
     expect((await this.auction.getUserParticipatesData(owner, { from: owner }))[11]).to.be.bignumber.equal(new BN((startTime + 86400 * 11).toString()));
-    await this.auction.unlockTokens(startTime, owner, { from: owner });
+    await this.auction.takeShare(startTime, owner, { from: owner });
     expect((await this.auction.getUserParticipatesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime + 86400 * 11).toString()));
   });
 });

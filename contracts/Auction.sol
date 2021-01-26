@@ -114,7 +114,7 @@ contract Auction is Context, Ownable {
         return totalEth;
     }
 
-    function canUnlockTokens(uint256 mintTime, address user) external view returns (uint256) {
+    function canTakeShare(uint256 mintTime, address user) external view returns (uint256) {
         if (_dailyTotalParticipatedETH[mintTime] > 0) {
             return _dailyParticipatedETH[mintTime][user].mul(DAILY_MINT_CAP).div(_dailyTotalParticipatedETH[mintTime]);
         }
@@ -128,7 +128,7 @@ contract Auction is Context, Ownable {
         return 0;
     }
 
-    function canUnlockLPReward(uint256 stakeTime, address user) external view returns (uint256) {
+    function canUnstakeLP(uint256 stakeTime, address user) external view returns (uint256) {
         if (_LPStakes[stakeTime][user].amount > 0) {
             uint256 lpStakeReward;
             (lpStakeReward,) = _calculateLPStakeReward(stakeTime);
@@ -179,7 +179,7 @@ contract Auction is Context, Ownable {
         emit Participate(msg.value, lastMintTime, _msgSender());
     }
 
-    function unlockTokens(uint256 mintTime, address user) external {
+    function takeShare(uint256 mintTime, address user) external {
         require(_dailyParticipatedETH[mintTime][user] > 0, "Nothing to unlock");
         require(mintTime.add(SECONDS_IN_DAY) < block.timestamp, "At least 1 day must pass");
         uint256 participatedAmount = _dailyParticipatedETH[mintTime][user];
@@ -255,7 +255,7 @@ contract Auction is Context, Ownable {
         IERC20(token).transferFrom(_msgSender(), address(this), amount);
     }
 
-    function unlockLPReward(uint256 stakeTime, address user) external {
+    function unstakeLP(uint256 stakeTime, address user) external {
         require(_LPStakes[stakeTime][user].amount > 0, "Nothing to unlock");
         uint256 lpStakeReward;
         uint256 lastStakeTime;
