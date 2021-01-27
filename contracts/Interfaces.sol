@@ -8,4 +8,10 @@ interface ICycleToken is IERC20 {
     function burn(uint256 amount) external;
     function isBlacklisted(address account) view external returns (bool);
     function setAuction(address account) external;
+    function setCYCLEWETHAddress(address CYCLEWETH) external;
+}
+
+interface IUniswapV2Router02 {
+    function factory() external view returns (address);
+    function WETH() external view returns (address);
 }

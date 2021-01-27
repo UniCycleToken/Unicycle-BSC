@@ -9,11 +9,17 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
     using SafeMath for uint256;
 
     address public auctionAddress;
+    address public CYCLEWETHAddress;
 
     mapping(address => bool) private _blacklistedAddresses;
 
     modifier onlyAuction() {
         require(_msgSender() == auctionAddress, "Caller is not auction");
+        _;
+    }
+
+    modifier onlyIfCYCLEWETHSet() {
+        require(CYCLEWETHAddress != address(0), "CYCLEWETHAddress is not set");
         _;
     }
 
@@ -30,10 +36,17 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
 
     function setAuction(address auction) external override onlyOwner {
         require(auction != address(0), "Zero address");
+        require(auctionAddress == address(0), "auction already set");
         auctionAddress = auction;
     }
 
-    function mint(uint256 amount) external override onlyAuction {
+    function setCYCLEWETHAddress(address CYCLEWETH) external override onlyOwner {
+        require(CYCLEWETH != address(0), "Zero address");
+        require(CYCLEWETHAddress == address(0), "CYCLEWETH already set");
+        CYCLEWETHAddress = CYCLEWETH;
+    }
+
+    function mint(uint256 amount) external override onlyAuction onlyIfCYCLEWETHSet {
         _mint(auctionAddress, amount);
     }
 
@@ -48,6 +61,12 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
     function removeFromBlacklist(address account) external onlyOwner {
         require(_blacklistedAddresses[account], "Not blacklisted");
         delete _blacklistedAddresses[account];
+    }
+
+    function transfer(address recipient, uint256 amount) public override(IERC20, ERC20) returns (bool) {
+        // uint256 _LPSupplyOfPairTotal = IERC20(tokenUniswapPair).totalSupply();
+        _transfer(_msgSender(), recipient, amount);
+        return true;
     }
 
     function _beforeTokenTransfer(address from, address, uint256) internal override onlyIfNotBlacklisted(from) {

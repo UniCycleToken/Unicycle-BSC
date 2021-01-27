@@ -17,8 +17,8 @@ contract Auction is Context, Ownable {
         uint256 lastUnlockTime;
     }
 
-    address public uniswapV2FactoryAddress;
     address public WETHAddress;
+    address public CYCLEWETHAddress;
 
     uint256 private constant DAILY_MINT_CAP = 100_000 * 10 ** 18;
     uint256 private constant FIRST_DAY_HARD_CAP = 1_500 * 10 ** 18;
@@ -55,19 +55,23 @@ contract Auction is Context, Ownable {
     event StakeLP(uint256 amount, uint256 stakeTime, address account);
     event UnstakeLP(uint256 reward, uint256 stakeTime, address account);
 
-    constructor(address cycleToken, address uniswapV2Factory, address WETH, uint256 mintTime, address payable team) public {
-        require(cycleToken != address(0), "ZERO ADDRESS");
-        require(uniswapV2Factory != address(0), "ZERO ADDRESS");
-        require(WETH != address(0), "ZERO ADDRESS");
-        require(team != address(0), "ZERO ADDRESS");
-        _cycleToken = ICycleToken(cycleToken);
-        uniswapV2FactoryAddress = uniswapV2Factory;
-        WETHAddress = WETH;
-        _teamAddress = team;
+    constructor(address cycleTokenAddress, address uniswapV2Router02Address, uint256 mintTime, address payable teamAddress) public {
+        require(cycleTokenAddress != address(0), "ZERO ADDRESS");
+        require(uniswapV2Router02Address != address(0), "ZERO ADDRESS");
+        require(teamAddress != address(0), "ZERO ADDRESS");
+        _cycleToken = ICycleToken(cycleTokenAddress);
+        _teamAddress = teamAddress;
         _setLastMintTime(mintTime);
         _isLiquidityAdded = false;
         _lastStakeTime = mintTime;
         _lastLPStakeTime = mintTime;
+        IUniswapV2Router02 uniswapV2Router02 = IUniswapV2Router02(uniswapV2Router02Address);
+        WETHAddress = uniswapV2Router02.WETH();
+        address uniswapV2FactoryAddress = uniswapV2Router02.factory();
+        IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2FactoryAddress);
+        CYCLEWETHAddress = factory.getPair(WETHAddress, address(_cycleToken));
+        if (CYCLEWETHAddress == address(0))
+            CYCLEWETHAddress = factory.createPair(WETHAddress, address(_cycleToken));
     }
 
     function getUserParticipatesData(address user) external view returns (uint256[] memory) {
@@ -323,10 +327,6 @@ contract Auction is Context, Ownable {
             teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100)).div(2);
             _cycleToken.transfer(_teamAddress, 50_000 * 10 ** 18);
 
-            IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2FactoryAddress);
-            address CYCLEWETHAddress = factory.getPair(WETHAddress, address(_cycleToken));
-            if (CYCLEWETHAddress == address(0))
-                CYCLEWETHAddress = factory.createPair(WETHAddress, address(_cycleToken));
             IUniswapV2Pair CYCLEWETH = IUniswapV2Pair(CYCLEWETHAddress);
             IWETH WETH = IWETH(WETHAddress);
 
