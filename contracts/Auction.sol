@@ -2,6 +2,9 @@ pragma solidity >=0.6.0 <0.7.0;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interfaces.sol";
 
@@ -14,14 +17,17 @@ contract Auction is Context, Ownable {
         uint256 lastUnlockTime;
     }
 
+    address public uniswapV2FactoryAddress;
+    address public WETHAddress;
+
     uint256 private constant DAILY_MINT_CAP = 100_000 * 10 ** 18;
     uint256 private constant FIRST_DAY_HARD_CAP = 1_500 * 10 ** 18;
     uint256 private constant FIRST_DAY_WALLET_CAP = 15 * 10 ** 18;
     uint256 private constant SECONDS_IN_DAY = 86400;
 
-    mapping(address => uint256[]) private userParticipateTimes;
-    mapping(address => uint256[]) private userStakeTimes;
-    mapping(address => uint256[]) private userLPStakeTimes;
+    mapping(address => uint256[]) private _userParticipateTimes;
+    mapping(address => uint256[]) private _userStakeTimes;
+    mapping(address => uint256[]) private _userLPStakeTimes;
 
     uint256 private _lastStakeTime;
     uint256 private _lastLPStakeTime;
@@ -38,7 +44,7 @@ contract Auction is Context, Ownable {
 
     address payable private _teamAddress;
     uint256 private _teamETHShare;
-    bool private _isFirstDayETHTaken;
+    bool private _isLiquidityAdded;
 
     ICycleToken private _cycleToken;
 
@@ -49,26 +55,31 @@ contract Auction is Context, Ownable {
     event StakeLP(uint256 amount, uint256 stakeTime, address account);
     event UnstakeLP(uint256 reward, uint256 stakeTime, address account);
 
-    constructor(address cycleTokenAddress, uint256 mintTime, address payable teamAddress) public {
-        require(cycleTokenAddress != address(0), "ZERO ADDRESS");
-        _cycleToken = ICycleToken(cycleTokenAddress);
-        _teamAddress = teamAddress;
+    constructor(address cycleToken, address uniswapV2Factory, address WETH, uint256 mintTime, address payable team) public {
+        require(cycleToken != address(0), "ZERO ADDRESS");
+        require(uniswapV2Factory != address(0), "ZERO ADDRESS");
+        require(WETH != address(0), "ZERO ADDRESS");
+        require(team != address(0), "ZERO ADDRESS");
+        _cycleToken = ICycleToken(cycleToken);
+        uniswapV2FactoryAddress = uniswapV2Factory;
+        WETHAddress = WETH;
+        _teamAddress = team;
         _setLastMintTime(mintTime);
-        _isFirstDayETHTaken = false;
+        _isLiquidityAdded = false;
         _lastStakeTime = mintTime;
         _lastLPStakeTime = mintTime;
     }
 
     function getUserParticipatesData(address user) external view returns (uint256[] memory) {
-        return userParticipateTimes[user];
+        return _userParticipateTimes[user];
     }
 
     function getUserStakesData(address user) external view returns (uint256[] memory) {
-        return userStakeTimes[user];
+        return _userStakeTimes[user];
     }
 
     function getUserLPStakesData(address user) external view returns (uint256[] memory) {
-        return userLPStakeTimes[user];
+        return _userLPStakeTimes[user];
     }
 
     function getCycleAddress() external view returns (address) {
@@ -157,12 +168,12 @@ contract Auction is Context, Ownable {
         _dailyTotalParticipatedETH[lastMintTime] = _dailyTotalParticipatedETH[lastMintTime].add(msg.value);
         _dailyParticipatedETH[lastMintTime][_msgSender()] = _dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
         _teamETHShare = _teamETHShare.add(msg.value.div(20));
-        if (userParticipateTimes[_msgSender()].length > 0) {
-            if (userParticipateTimes[_msgSender()][userParticipateTimes[_msgSender()].length - 1] != lastMintTime) {
-                userParticipateTimes[_msgSender()].push(lastMintTime);
+        if (_userParticipateTimes[_msgSender()].length > 0) {
+            if (_userParticipateTimes[_msgSender()][_userParticipateTimes[_msgSender()].length - 1] != lastMintTime) {
+                _userParticipateTimes[_msgSender()].push(lastMintTime);
             }
         } else {
-            userParticipateTimes[_msgSender()].push(lastMintTime);
+            _userParticipateTimes[_msgSender()].push(lastMintTime);
         }
         emit Participate(msg.value, lastMintTime, _msgSender());
     }
@@ -173,10 +184,10 @@ contract Auction is Context, Ownable {
         uint256 participatedAmount = _dailyParticipatedETH[mintTime][user];
         delete _dailyParticipatedETH[mintTime][user];
         uint256 cycleSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedETH[mintTime]);
-        for (uint256 i = 0; i < userParticipateTimes[user].length; i++) {
-            if (userParticipateTimes[user][i] == mintTime) {
-                userParticipateTimes[user][i] = userParticipateTimes[user][userParticipateTimes[user].length - 1];
-                userParticipateTimes[user].pop();
+        for (uint256 i = 0; i < _userParticipateTimes[user].length; i++) {
+            if (_userParticipateTimes[user][i] == mintTime) {
+                _userParticipateTimes[user][i] = _userParticipateTimes[user][_userParticipateTimes[user].length - 1];
+                _userParticipateTimes[user].pop();
             }
         }
         _cycleToken.transfer(user, participatedAmount.mul(cycleSharePayout));
@@ -195,12 +206,12 @@ contract Auction is Context, Ownable {
         uint256 fivePercentOfStake = amount.div(20);
         _cycleToken.transferFrom(_msgSender(), address(this), amount);
         _cycleToken.burn(amount.sub(fivePercentOfStake));
-        if (userStakeTimes[_msgSender()].length > 0) {
-            if (userStakeTimes[_msgSender()][userStakeTimes[_msgSender()].length - 1] != stakeTime) {
-                userStakeTimes[_msgSender()].push(stakeTime);
+        if (_userStakeTimes[_msgSender()].length > 0) {
+            if (_userStakeTimes[_msgSender()][_userStakeTimes[_msgSender()].length - 1] != stakeTime) {
+                _userStakeTimes[_msgSender()].push(stakeTime);
             }
         } else {
-            userStakeTimes[_msgSender()].push(stakeTime);
+            _userStakeTimes[_msgSender()].push(stakeTime);
         }
         emit Stake(amount, stakeTime, _msgSender());
     }
@@ -212,10 +223,10 @@ contract Auction is Context, Ownable {
         delete _dailyStakedCycle[stakeTime][user];
         user.transfer(unstakeRewardAmount);
         _accumulativeStakedCycle[_lastStakeTime] = _accumulativeStakedCycle[_lastStakeTime].sub(_dailyStakedCycle[stakeTime][user]);
-        for (uint256 i = 0; i < userStakeTimes[user].length; i++) {
-            if (userStakeTimes[user][i] == stakeTime) {
-                userStakeTimes[user][i] = userStakeTimes[user][userStakeTimes[user].length - 1];
-                userStakeTimes[user].pop();
+        for (uint256 i = 0; i < _userStakeTimes[user].length; i++) {
+            if (_userStakeTimes[user][i] == stakeTime) {
+                _userStakeTimes[user][i] = _userStakeTimes[user][_userStakeTimes[user].length - 1];
+                _userStakeTimes[user].pop();
             }
         }
         emit Unstake(unstakeRewardAmount, stakeTime, user);
@@ -233,12 +244,12 @@ contract Auction is Context, Ownable {
         staker.amount = staker.amount.add(amount);
         staker.lastUnlockTime = stakeTime;
         _lastLPStakeTime = stakeTime;
-        if (userLPStakeTimes[_msgSender()].length > 0) {
-            if (userLPStakeTimes[_msgSender()][userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
-                userLPStakeTimes[_msgSender()].push(stakeTime);
+        if (_userLPStakeTimes[_msgSender()].length > 0) {
+            if (_userLPStakeTimes[_msgSender()][_userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
+                _userLPStakeTimes[_msgSender()].push(stakeTime);
             }
         } else {
-            userLPStakeTimes[_msgSender()].push(stakeTime);
+            _userLPStakeTimes[_msgSender()].push(stakeTime);
         }
         IERC20(token).transferFrom(_msgSender(), address(this), amount);
     }
@@ -305,13 +316,30 @@ contract Auction is Context, Ownable {
     function _takeTeamETHShare() private {
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
-        if (!_isFirstDayETHTaken && _mintTimes[1].add(SECONDS_IN_DAY) < block.timestamp) {
+        if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) < block.timestamp) {
             // mint tokens for first day
             _cycleToken.mint(DAILY_MINT_CAP);
             // (5% + 95%) / 2
-            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100));
-            _cycleToken.transfer(_teamAddress, 100_000 * 10 ** 18);
-            _isFirstDayETHTaken = true;
+            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100)).div(2);
+            _cycleToken.transfer(_teamAddress, 50_000 * 10 ** 18);
+
+            IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2FactoryAddress);
+            address CYCLEWETHAddress = factory.getPair(WETHAddress, address(_cycleToken));
+            if (CYCLEWETHAddress == address(0))
+                CYCLEWETHAddress = factory.createPair(WETHAddress, address(_cycleToken));
+            IUniswapV2Pair CYCLEWETH = IUniswapV2Pair(CYCLEWETHAddress);
+            IWETH WETH = IWETH(WETHAddress);
+
+            WETH.deposit{ value : teamETHShare }();
+            // (bool success, ) = devAddr.call{value:devETHFee}("");
+            // require(success, "Transfer failed.");
+            // require(address(this).balance == 0 , "Transfer Failed");
+
+            WETH.transfer(CYCLEWETHAddress, teamETHShare);
+            _cycleToken.transfer(CYCLEWETHAddress, 50_000 * 10 ** 18);
+            CYCLEWETH.mint(_teamAddress);
+
+            _isLiquidityAdded = true;
         }
         _teamAddress.transfer(teamETHShare);
     }

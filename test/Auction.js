@@ -7,17 +7,28 @@ const { cycle } = require('./Utils');
 
 const CYCLEToken = artifacts.require('CYCLEToken');
 const Auction = artifacts.require('Auction');
+const WETH = artifacts.require('WETH9');
+const UniswapV2Pair = artifacts.require('UniswapV2Pair');
+const UniswapV2Factory = artifacts.require('UniswapV2Factory');
 
 contract('AUCTION test', async ([owner, alice, bob]) => {
   beforeEach(async () => {
     const startTime = await time.latest();
     this.cycle = await CYCLEToken.new({ from: owner });
-    this.auction = await Auction.new(this.cycle.address, startTime, owner, { from: owner });
+    this.weth = await WETH.new({ from: owner });
+    this.factory = await UniswapV2Factory.new(owner, { from: owner });
+    this.team = web3.eth.accounts.create();
+    this.auction = await Auction.new(this.cycle.address, this.factory.address, this.weth.address, startTime, this.team.address, { from: owner });
     await this.cycle.setAuction(this.auction.address, { from: owner });
   });
+
   it('auction constructor should fail', async () => {
     const startTime = await time.latest();
-    await expectRevert(Auction.new(constants.ZERO_ADDRESS, startTime, owner, { from: owner }), 'ZERO ADDRESS');
+    await expectRevert(Auction.new(constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, startTime, this.team.address, { from: owner }), 'ZERO ADDRESS');
+  });
+
+  it('checking getCycleAddress', async () => {
+    expect(await this.auction.getCycleAddress()).to.equal(this.cycle.address);
   });
 
   it('checking getCycleAddress', async () => {
@@ -38,7 +49,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     });
 
     it('check team address', async () => {
-      expect((await this.auction.getTeamInfo({ from: owner }))[1]).to.equal(owner);
+      expect((await this.auction.getTeamInfo({ from: owner }))[1]).to.equal(this.team.address);
     });
 
     // it('takeTeamEthShare should fail', async () => {
@@ -68,6 +79,22 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
 
     it('unlock negative', async () => {
       await expectRevert(this.auction.takeShare(await this.auction.getLastMintTime(), owner, { from: owner }), 'Nothing to unlock');
+    });
+
+    it('add liquidity positive', async () => {
+      await time.increase(time.duration.days(1));
+      expect(await this.factory.getPair(this.weth.address, this.cycle.address)).to.equal(constants.ZERO_ADDRESS);
+      await this.auction.participate({ from: alice, value: ether('1') });
+      expect(await this.cycle.balanceOf(this.team.address)).to.be.bignumber.equal(cycle('50000'));
+      expect(await web3.eth.getBalance(this.team.address)).to.be.bignumber.equal(ether('2.5'));
+
+      const pairAddress = await this.factory.getPair(this.weth.address, this.cycle.address);
+      expect(pairAddress).not.to.equal(constants.ZERO_ADDRESS);
+      expect(await this.cycle.balanceOf(pairAddress)).to.be.bignumber.equal(cycle('50000'));
+      expect(await this.weth.balanceOf(pairAddress)).to.be.bignumber.equal(ether('2.5'));
+
+      const pair = await UniswapV2Pair.at(pairAddress);
+      expect(await pair.balanceOf(this.team.address)).to.be.bignumber.not.equal(ether('0'));
     });
   });
 

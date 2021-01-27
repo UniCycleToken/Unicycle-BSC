@@ -7,13 +7,17 @@ const { cycle } = require('./Utils');
 
 const CYCLEToken = artifacts.require('CYCLEToken');
 const Auction = artifacts.require('Auction');
+const WETH = artifacts.require('WETH9');
+const UniswapV2Factory = artifacts.require('UniswapV2Factory');
 
 contract('Integration test', async ([owner, alice, bob]) => {
   beforeEach(async () => {
     const startTime = await time.latest();
     this.cycle = await CYCLEToken.new({ from: owner });
+    this.weth = await WETH.new({ from: owner });
+    this.factory = await UniswapV2Factory.new(owner, { from: owner });
     this.team = web3.eth.accounts.create();
-    this.auction = await Auction.new(this.cycle.address, startTime, this.team.address, { from: owner });
+    this.auction = await Auction.new(this.cycle.address, this.factory.address, this.weth.address, startTime, this.team.address, { from: owner });
     await this.cycle.setAuction(this.auction.address, { from: owner });
     expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('0'));
   });
@@ -137,9 +141,13 @@ contract('Integration test', async ([owner, alice, bob]) => {
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('14.50'));
     await this.auction.unstake(startTime + 86400 * 8, bob, { from: bob });
     expect(await web3.eth.getBalance(this.auction.address)).to.be.bignumber.equal(ether('0.25'));
-    // doesnt include 95% of staked eth on first day = 4.75
+
     expect((await this.auction.getTeamInfo({ from: owner }))[0]).to.be.bignumber.equal(ether('0.25'));
-    expect(await web3.eth.getBalance(this.team.address)).to.be.bignumber.equal(ether('7.25'));
+    expect(await web3.eth.getBalance(this.team.address)).to.be.bignumber.equal(ether('4.75'));
+
+    const pairAddress = await this.factory.getPair(this.weth.address, this.cycle.address);
+    expect(await this.cycle.balanceOf(pairAddress)).to.be.bignumber.equal(cycle('50000'));
+    expect(await this.weth.balanceOf(pairAddress)).to.be.bignumber.equal(ether('2.5'));
   });
 
   it('check unstake after 100 days', async () => {

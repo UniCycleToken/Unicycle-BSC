@@ -9,6 +9,8 @@ const { cycle } = require('./Utils');
 
 const CYCLEToken = artifacts.require('CYCLEToken');
 const Auction = artifacts.require('Auction');
+const WETH = artifacts.require('WETH9');
+const UniswapV2Factory = artifacts.require('UniswapV2Factory');
 
 contract('CYCLE test', async ([owner, burner, holder]) => {
   const startTime = Math.floor(Date.now() / 1000) - 86400;
@@ -16,7 +18,10 @@ contract('CYCLE test', async ([owner, burner, holder]) => {
 
   beforeEach(async () => {
     this.cycle = await CYCLEToken.new({ from: owner });
-    this.auction = await Auction.new(this.cycle.address, startTime, owner, { from: owner });
+    this.weth = await WETH.new({ from: owner });
+    this.factory = await UniswapV2Factory.new(owner, { from: owner });
+    this.team = web3.eth.accounts.create();
+    this.auction = await Auction.new(this.cycle.address, this.factory.address, this.weth.address, startTime, this.team.address, { from: owner });
     await this.cycle.setAuction(this.auction.address, { from: owner });
   });
 
