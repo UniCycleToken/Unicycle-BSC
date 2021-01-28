@@ -330,11 +330,7 @@ contract Auction is Context, Ownable {
 
             IUniswapV2Pair CYCLEWETH = IUniswapV2Pair(CYCLEWETHAddress);
             IWETH WETH = IWETH(WETHAddress);
-
             WETH.deposit{ value : teamETHShare }();
-            // (bool success, ) = devAddr.call{value:devETHFee}("");
-            // require(success, "Transfer failed.");
-            // require(address(this).balance == 0 , "Transfer Failed");
 
             WETH.transfer(CYCLEWETHAddress, teamETHShare);
             _CYCLE.transfer(CYCLEWETHAddress, 50_000 * 10 ** 18);
