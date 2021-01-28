@@ -195,6 +195,7 @@ contract Auction is Context, Ownable {
             }
         }
         _cycleToken.transfer(user, participatedAmount.mul(cycleSharePayout));
+        emit TakeShare(participatedAmount.mul(cycleSharePayout), mintTime, user);
     }
 
     function stake(uint256 amount) external {
@@ -256,6 +257,7 @@ contract Auction is Context, Ownable {
             _userLPStakeTimes[_msgSender()].push(stakeTime);
         }
         IERC20(token).transferFrom(_msgSender(), address(this), amount);
+        emit StakeLP(amount, stakeTime, _msgSender());
     }
 
     function unstakeLP(uint256 stakeTime, address user) external {
