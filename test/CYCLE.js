@@ -78,4 +78,5 @@ contract('CYCLE test', async ([owner, burner, holder]) => {
       await expectRevert.unspecified(this.cycle.removeFromBlacklist(burner, { from: holder }));
     });
   });
+
 });

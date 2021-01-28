@@ -237,7 +237,7 @@ contract Auction is Context, Ownable {
     }
 
     function stakeLP(address token, uint256 amount) external {
-        require(_cycleToken.isBlacklisted(token), 'Token is not supported');
+        require(token == CYCLEWETHAddress, 'Token is not supported');
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
         if (stakeTime > _lastLPStakeTime) {
@@ -320,7 +320,7 @@ contract Auction is Context, Ownable {
     function _takeTeamETHShare() private {
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
-        if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) < block.timestamp) {
+        if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) <= block.timestamp) {
             // mint tokens for first day
             _cycleToken.mint(DAILY_MINT_CAP);
             // (5% + 95%) / 2

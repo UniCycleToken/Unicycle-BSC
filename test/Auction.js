@@ -35,10 +35,6 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
     expect(await this.auction.getCycleAddress()).to.equal(this.cycle.address);
   });
 
-  it('checking getCycleAddress', async () => {
-    expect(await this.auction.getCycleAddress()).to.equal(this.cycle.address);
-  });
-
   it('participate first day wallet cap negative', async () => {
     await expectRevert(this.auction.participate({ from: alice, value: ether('16') }), 'First day wallet cap reached');
   });
@@ -148,4 +144,17 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       expect(await this.auction.getStakedCycle(startTime + 86400, bob, { from: bob })).to.be.bignumber.equal(cycle('8000'));
     });
   });
+
+  // describe('check lp widthdrawal lock', async () => {
+  //   it('blacklist positive tests', async () => {
+  //     expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(cycle('0'));
+  //     await time.increase(time.duration.days(1));
+  //     await this.auction.participate({ from: alice, value: ether('1') });
+  //     await time.increase(time.duration.days(1));
+  //     await this.auction.takeShare(await this.auction.getLastMintTime(), alice, { from: alice });
+  //     expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(cycle('100000'));
+      
+  //     await this.cycle.approve(this.auction.address, cycle('100000'), { from: alice });
+  //   });
+  // });
 });

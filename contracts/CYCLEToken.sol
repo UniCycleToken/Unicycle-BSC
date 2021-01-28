@@ -10,6 +10,7 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
 
     address public auctionAddress;
     address public CYCLEWETHAddress;
+    uint256 public CYCLEWETHLastTotalSupply;
 
     mapping(address => bool) private _blacklistedAddresses;
 
@@ -44,6 +45,7 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         require(CYCLEWETH != address(0), "Zero address");
         require(CYCLEWETHAddress == address(0), "CYCLEWETH already set");
         CYCLEWETHAddress = CYCLEWETH;
+        CYCLEWETHLastTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
     }
 
     function mint(uint256 amount) external override onlyAuction onlyIfCYCLEWETHSet {
@@ -63,10 +65,21 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         delete _blacklistedAddresses[account];
     }
 
-    function transfer(address recipient, uint256 amount) public override(IERC20, ERC20) returns (bool) {
-        // uint256 _LPSupplyOfPairTotal = IERC20(tokenUniswapPair).totalSupply();
-        _transfer(_msgSender(), recipient, amount);
-        return true;
+    function sync() public {
+        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
+    }
+
+    function _transfer(address sender, address recipient, uint256 amount) internal override {
+        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+
+        if (sender == CYCLEWETHAddress) {
+            require(CYCLEWETHLastTotalSupply <= CYCLEWETHCurrentTotalSupply, "Liquidity withdrawals forbidden");
+        }
+
+        ERC20._transfer(sender, recipient, amount);
+
+        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
     }
 
     function _beforeTokenTransfer(address from, address, uint256) internal override onlyIfNotBlacklisted(from) {
