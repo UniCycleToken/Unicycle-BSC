@@ -20,9 +20,11 @@ contract('LP related test', async ([owner, alice, bob]) => {
     this.factory = await UniswapV2Factory.new(owner, { from: owner });
     await this.factory.createPair(this.weth.address, this.cycle.address);
     this.team = web3.eth.accounts.create();
-    this.auction = await Auction.new(this.cycle.address, this.factory.address, this.weth.address, startTime, this.team.address, { from: owner });
-    await this.cycle.setAuction(this.auction.address, { from: owner });
     this.router = await UniswapV2Router02.new(this.factory.address, this.weth.address, { from: owner });
+    this.auction = await Auction.new(this.cycle.address, this.router.address, startTime, this.team.address, { from: owner });
+    await this.cycle.setAuction(this.auction.address, { from: owner });
+    const pair = await this.factory.getPair(this.weth.address, this.cycle.address);
+    await this.cycle.setCYCLEWETHAddress(pair, { from: owner });
   });
 
   it('check that remove liquidity is blocked', async () => {
