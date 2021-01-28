@@ -153,7 +153,6 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
   //     await time.increase(time.duration.days(1));
   //     await this.auction.takeShare(await this.auction.getLastMintTime(), alice, { from: alice });
   //     expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(cycle('100000'));
-      
   //     await this.cycle.approve(this.auction.address, cycle('100000'), { from: alice });
   //   });
   // });

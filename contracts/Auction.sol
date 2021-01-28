@@ -265,8 +265,13 @@ contract Auction is Context, Ownable {
         uint256 lpStakeReward;
         uint256 lastStakeTime;
         (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime);
-        _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
         _CYCLE.transfer(user, lpStakeReward);
+        if (lastStakeTime.add(SECONDS_IN_DAY * 2) > block.timestamp) {
+            IERC20(CYCLEWETHAddress).transfer(user, _LPStakes[stakeTime][user].amount);
+            delete _LPStakes[stakeTime][user];
+        } else {
+            _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
+        }
     }
 
     function _getRightStakeTime() private view returns(uint256) {
@@ -300,7 +305,7 @@ contract Auction is Context, Ownable {
         uint256 accumulativeDailyStakedLP = _accumulativeStakedLP[stakeTime];
         uint256 amountStaked = _LPStakes[stakeTime][_msgSender()].amount;
         uint256 lastUnlockTime = _LPStakes[stakeTime][_msgSender()].lastUnlockTime;
-        for (;lastUnlockTime <= block.timestamp ;) {
+        for (; lastUnlockTime <= block.timestamp;) {
             accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
             if (_dailyTotalParticipatedETH[lastUnlockTime] > 0) {
                 lpStakeReward = lpStakeReward.add(
