@@ -1,6 +1,6 @@
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -27,7 +27,7 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -97,7 +97,7 @@ contract Ownable is Context {
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -177,7 +177,7 @@ interface IERC20 {
 
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -339,7 +339,7 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/utils/Address.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -483,7 +483,7 @@ library Address {
 
 // File: @openzeppelin/contracts/token/ERC20/ERC20.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -801,6 +801,12 @@ interface ICycleToken is IERC20 {
     function burn(uint256 amount) external;
     function isBlacklisted(address account) view external returns (bool);
     function setAuction(address account) external;
+    function setCYCLEWETHAddress(address CYCLEWETH) external;
+}
+
+interface IUniswapV2Router02 {
+    function factory() external view returns (address);
+    function WETH() external view returns (address);
 }
 
 // File: contracts/CYCLEToken.sol
@@ -814,12 +820,19 @@ pragma solidity >= 0.6.0 < 0.7.0;
 contract CYCLEToken is ICycleToken, ERC20, Ownable {
     using SafeMath for uint256;
 
+    address public auctionAddress;
+    address public CYCLEWETHAddress;
+    uint256 public CYCLEWETHLastTotalSupply;
+
     mapping(address => bool) private _blacklistedAddresses;
 
-    address private _auctionAddress;
-
     modifier onlyAuction() {
-        require(_msgSender() == _auctionAddress, "Caller is not auction");
+        require(_msgSender() == auctionAddress, "Caller is not auction");
+        _;
+    }
+
+    modifier onlyIfCYCLEWETHSet() {
+        require(CYCLEWETHAddress != address(0), "CYCLEWETHAddress is not set");
         _;
     }
 
@@ -828,23 +841,31 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _;
     }
 
-    constructor () public ERC20("CYCLEToken", "CYCLE") {}
+    constructor () public ERC20("UniCycle", "CYCLE") {}
 
     function isBlacklisted(address account) external view override returns (bool) {
         return _blacklistedAddresses[account];
     }
 
-    function setAuction(address auctionAddress) external override onlyOwner {
-        require(auctionAddress != address(0), "Zero address");
-        _auctionAddress = auctionAddress;
+    function setAuction(address auction) external override onlyOwner {
+        require(auction != address(0), "Zero address");
+        require(auctionAddress == address(0), "auction already set");
+        auctionAddress = auction;
     }
 
-    function mint(uint256 amount) external override onlyAuction {
-        _mint(_auctionAddress, amount);
+    function setCYCLEWETHAddress(address CYCLEWETH) external override onlyOwner {
+        require(CYCLEWETH != address(0), "Zero address");
+        require(CYCLEWETHAddress == address(0), "CYCLEWETH already set");
+        CYCLEWETHAddress = CYCLEWETH;
+        CYCLEWETHLastTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+    }
+
+    function mint(uint256 amount) external override onlyAuction onlyIfCYCLEWETHSet {
+        _mint(auctionAddress, amount);
     }
 
     function burn(uint256 amount) external override onlyAuction {
-        _burn(_auctionAddress, amount);
+        _burn(auctionAddress, amount);
     }
 
     function addToBlacklist(address account) external onlyOwner onlyIfNotBlacklisted(account) {
@@ -854,6 +875,23 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
     function removeFromBlacklist(address account) external onlyOwner {
         require(_blacklistedAddresses[account], "Not blacklisted");
         delete _blacklistedAddresses[account];
+    }
+
+    function sync() public {
+        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
+    }
+
+    function _transfer(address sender, address recipient, uint256 amount) internal override {
+        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+
+        if (sender == CYCLEWETHAddress) {
+            require(CYCLEWETHLastTotalSupply <= CYCLEWETHCurrentTotalSupply, "Liquidity withdrawals forbidden");
+        }
+
+        ERC20._transfer(sender, recipient, amount);
+
+        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
     }
 
     function _beforeTokenTransfer(address from, address, uint256) internal override onlyIfNotBlacklisted(from) {
