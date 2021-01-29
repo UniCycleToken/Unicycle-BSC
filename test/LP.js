@@ -129,50 +129,50 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
     expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(cycle('19990'));
     expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('10000'));
     expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 3));
-    await expectRevert(this.auction.unstakeLP(startTime + 86400 * 2, owner, { from: owner }), 'Nothing to unlock');
-    await this.auction.unstakeLP(startTime + 86400 * 3, owner, { from: owner });
-    expect(await this.auction.getStakedLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
-    expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(new BN(0));
-    // this part of tests worked when LPstake was not returned now it will work only when the function is almost out of gas
-    // not our case hence comment out
-    // expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3,owner, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 13));
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
-    // // + 100 000 * 10 / 20 = 50 000, owners share is 20% => 10 000
-    // expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(ether('29990'));
-    // expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('19990'));
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('40000'));
+    await expectRevert(this.auction.takeLPReward(startTime + 86400 * 2, owner, { from: owner }), 'Nothing to unlock');
+    await this.auction.takeLPReward(startTime + 86400 * 3, owner, { from: owner });
+    expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3,owner, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 13));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
+    // + 100 000 * 10 / 20 = 50 000, owners share is 20% => 10 000
+    expect(await this.cycle.balanceOf(owner)).to.be.bignumber.equal(ether('29990'));
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('19990'));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('40000'));
     
-    // await this.auction.unstakeLP(startTime + 86400 * 3, alice, { from: alice });
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
-    // // + 100 000 * 10 / 20 = 50 000, alice share is 80% => 40 000
-    // expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('59990'));
+    await this.auction.takeLPReward(startTime + 86400 * 3, alice, { from: alice });
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
+    // + 100 000 * 10 / 20 = 50 000, alice share is 80% => 40 000
+    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('59990'));
 
-    // // add another LP staker in the middle of new participation cycle
-    // for (let i = 0; i < 5; i += 1) {
-    //   // eslint-disable-next-line no-await-in-loop
-    //   await this.auction.participate({ from: alice, value: ether('5') });
-    //   // eslint-disable-next-line no-await-in-loop
-    //   await time.increase(time.duration.days(1));
-    // }
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('5000'));
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('20000'));
-    // await this.auction.stakeLP(lpTokenAddress, ether('5'), { from: bob });
-    // for (let i = 0; i < 5; i += 1) {
-    //   // eslint-disable-next-line no-await-in-loop
-    //   await this.auction.participate({ from: owner, value: ether('5') });
-    //   // eslint-disable-next-line no-await-in-loop
-    //   await time.increase(time.duration.days(1));
-    // }
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('7500'));
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('30000'));
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 18, bob, { from: bob })).to.be.bignumber.equal(ether('12500'));
-    // await this.auction.unstakeLP(startTime + 86400 * 3, owner, { from: owner });
-    // expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 23));
-    // await this.auction.unstakeLP(startTime + 86400 * 3, alice, { from: alice });
-    // await this.auction.unstakeLP(startTime + 86400 * 18, bob, { from: bob });
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
-    // expect(await this.auction.canUnstakeLP(startTime + 86400 * 18, bob, { from: bob })).to.be.bignumber.equal(ether('0'));
+    // add another LP staker in the middle of new participation cycle
+    for (let i = 0; i < 5; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await this.auction.participate({ from: alice, value: ether('5') });
+      // eslint-disable-next-line no-await-in-loop
+      await time.increase(time.duration.days(1));
+    }
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('5000'));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('20000'));
+    await this.auction.stakeLP(lpTokenAddress, ether('5'), { from: bob });
+    expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('10'));
+    for (let i = 0; i < 5; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await this.auction.participate({ from: owner, value: ether('5') });
+      // eslint-disable-next-line no-await-in-loop
+      await time.increase(time.duration.days(1));
+    }
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('7500'));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('30000'));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 18, bob, { from: bob })).to.be.bignumber.equal(ether('12500'));
+    await this.auction.takeLPReward(startTime + 86400 * 3, owner, { from: owner });
+    expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(new BN(startTime + 86400 * 23));
+    await this.auction.takeLPReward(startTime + 86400 * 3, alice, { from: alice });
+    // bob takes out his LPtokens completely, losing all potential reward
+    await this.auction.unstakeLP(startTime + 86400 * 18, bob, { from: bob });
+    expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('5'));
+    expect(await this.auction.getStakedLP(startTime + 86400 * 18, bob, { from: bob })).to.be.bignumber.equal(ether('0'));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
+    expect(await this.auction.canUnstakeLP(startTime + 86400 * 18, bob, { from: bob })).to.be.bignumber.equal(ether('0'));
   });
 
   it('checking that userLPStakes is updating correctly', async () => {
@@ -213,36 +213,36 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
   });
 
   // takes 6-10mins
-  it('check LP stake for 1000 days breakpoint', async () => {
-    const startTime = (await this.auction.getLastMintTime()).toNumber();
-    await time.increase(time.duration.days(2));
-    // prepare LPStake for alice
-    await this.auction.participate({ from: alice, value: ether('1') });
-    await this.weth.deposit({ from: alice, value: ether('10') });
-    await this.cycle.approve(this.router.address, ether('10'), { from: alice });
-    await this.weth.approve(this.router.address, ether('10'), { from: alice });
-    await time.increase(time.duration.days(1));
-    await this.auction.takeShare(startTime + 86400 * 2, alice, { from: alice });
-    expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('100000'));
+  // it('check LP stake for 1000 days breakpoint', async () => {
+  //   const startTime = (await this.auction.getLastMintTime()).toNumber();
+  //   await time.increase(time.duration.days(2));
+  //   // prepare LPStake for alice
+  //   await this.auction.participate({ from: alice, value: ether('1') });
+  //   await this.weth.deposit({ from: alice, value: ether('10') });
+  //   await this.cycle.approve(this.router.address, ether('10'), { from: alice });
+  //   await this.weth.approve(this.router.address, ether('10'), { from: alice });
+  //   await time.increase(time.duration.days(1));
+  //   await this.auction.takeShare(startTime + 86400 * 2, alice, { from: alice });
+  //   expect(await this.cycle.balanceOf(alice)).to.be.bignumber.equal(ether('100000'));
 
-    const blockTime = await time.latest();
-    await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), ether('10'), 0, 0, alice, blockTime + 30, { from: alice });
-    const lpTokenAddress = await this.factory.getPair(this.weth.address, this.cycle.address);
-    const lpToken = await UniswapV2Pair.at(lpTokenAddress);
-    await lpToken.approve(this.auction.address, ether('10'), { from: alice });
-    await this.auction.stakeLP(lpTokenAddress, ether('1'), { from: alice });
-    expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('1'));
-    expect(await this.auction.getStakedLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('1'));
-    expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
-    for (let i = 0; i < 1100; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      await this.auction.participate({ from: bob, value: ether('0.01') });
-      // eslint-disable-next-line no-await-in-loop
-      await time.increase(time.duration.days(1));
-    }
-    expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('5500000'));
-    expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(new BN(startTime + 86400 * 3));
-    await this.auction.unstakeLP(startTime + 86400 * 3, alice, { from: alice });
-    expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(new BN(0));
-  });
+  //   const blockTime = await time.latest();
+  //   await this.router.addLiquidity(this.weth.address, this.cycle.address, ether('10'), ether('10'), 0, 0, alice, blockTime + 30, { from: alice });
+  //   const lpTokenAddress = await this.factory.getPair(this.weth.address, this.cycle.address);
+  //   const lpToken = await UniswapV2Pair.at(lpTokenAddress);
+  //   await lpToken.approve(this.auction.address, ether('10'), { from: alice });
+  //   await this.auction.stakeLP(lpTokenAddress, ether('1'), { from: alice });
+  //   expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('1'));
+  //   expect(await this.auction.getStakedLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('1'));
+  //   expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
+  //   for (let i = 0; i < 1100; i += 1) {
+  //     // eslint-disable-next-line no-await-in-loop
+  //     await this.auction.participate({ from: bob, value: ether('0.01') });
+  //     // eslint-disable-next-line no-await-in-loop
+  //     await time.increase(time.duration.days(1));
+  //   }
+  //   expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('5500000'));
+  //   expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(new BN(startTime + 86400 * 3));
+  //   await this.auction.takeLPReward(startTime + 86400 * 3, alice, { from: alice });
+  //   expect(await this.auction.getLastLpUnlockTime(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(new BN(startTime + 86400 * 1103));
+  // });
 });

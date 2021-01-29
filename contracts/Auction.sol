@@ -260,17 +260,22 @@ contract Auction is Context, Ownable {
         emit StakeLP(amount, stakeTime, _msgSender());
     }
 
-    function unstakeLP(uint256 stakeTime, address user) external {
+    function takeLPReward(uint256 stakeTime, address user) public returns (uint256) {
         require(_LPStakes[stakeTime][user].amount > 0, "Nothing to unlock");
         uint256 lpStakeReward;
         uint256 lastStakeTime;
         (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime);
+        _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
         _CYCLE.transfer(user, lpStakeReward);
+        return lastStakeTime;
+    }
+
+    function unstakeLP(uint256 stakeTime, address user) external {
+        uint256 lastStakeTime = takeLPReward(stakeTime, user);
         if (lastStakeTime.add(SECONDS_IN_DAY * 2) > block.timestamp) {
+            _accumulativeStakedLP[_lastLPStakeTime] = _accumulativeStakedLP[_lastLPStakeTime].sub(_LPStakes[stakeTime][user].amount);
             IERC20(CYCLEWETHAddress).transfer(user, _LPStakes[stakeTime][user].amount);
             delete _LPStakes[stakeTime][user];
-        } else {
-            _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
         }
     }
 
@@ -305,7 +310,7 @@ contract Auction is Context, Ownable {
         uint256 accumulativeDailyStakedLP = _accumulativeStakedLP[stakeTime];
         uint256 amountStaked = _LPStakes[stakeTime][_msgSender()].amount;
         uint256 lastUnlockTime = _LPStakes[stakeTime][_msgSender()].lastUnlockTime;
-        for (; lastUnlockTime <= block.timestamp;) {
+        for (;lastUnlockTime <= block.timestamp ;) {
             accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
             if (_dailyTotalParticipatedETH[lastUnlockTime] > 0) {
                 lpStakeReward = lpStakeReward.add(
