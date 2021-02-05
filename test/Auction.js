@@ -85,7 +85,7 @@ contract('AUCTION test', async ([owner, alice, bob]) => {
       await time.increase(time.duration.days(1));
 
       await this.auction.participate({ from: alice, value: ether('1') });
-      expect(await this.cycle.balanceOf(this.team.address)).to.be.bignumber.equal(cycle('50000'));
+      expect(await this.cycle.balanceOf(this.team.address)).to.be.bignumber.equal(cycle('0'));
       expect(await web3.eth.getBalance(this.team.address)).to.be.bignumber.equal(ether('2.5'));
 
       const pairAddress = await this.factory.getPair(this.weth.address, this.cycle.address);

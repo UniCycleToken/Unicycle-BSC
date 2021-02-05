@@ -1,6 +1,6 @@
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -162,7 +162,7 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -189,7 +189,7 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -344,7 +344,7 @@ interface IWETH {
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-// SPDX-License-Identifier: MIT
+
 
 pragma solidity ^0.6.0;
 
@@ -777,18 +777,22 @@ contract Auction is Context, Ownable {
         _teamETHShare = 0;
         if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) <= block.timestamp) {
             // mint tokens for first day
-            _CYCLE.mint(DAILY_MINT_CAP);
+            _CYCLE.mint(50_000 * 10 ** 18);
             // (5% + 95%) / 2
             teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100)).div(2);
-            _CYCLE.transfer(_teamAddress, 50_000 * 10 ** 18);
 
             IUniswapV2Pair CYCLEWETH = IUniswapV2Pair(CYCLEWETHAddress);
             IWETH WETH = IWETH(WETHAddress);
             WETH.deposit{ value : teamETHShare }();
 
+            uint256 lpMinted = CYCLEWETH.balanceOf(_teamAddress);
+
             WETH.transfer(CYCLEWETHAddress, teamETHShare);
             _CYCLE.transfer(CYCLEWETHAddress, 50_000 * 10 ** 18);
             CYCLEWETH.mint(_teamAddress);
+
+            lpMinted = CYCLEWETH.balanceOf(_teamAddress).sub(lpMinted);
+            require(lpMinted > 0, "liquidity add failed");
 
             _isLiquidityAdded = true;
         }
