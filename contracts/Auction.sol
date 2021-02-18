@@ -147,7 +147,7 @@ contract Auction is Context, Ownable {
     function canUnstakeLP(uint256 stakeTime, address user) external view returns (uint256) {
         if (_LPStakes[stakeTime][user].amount > 0) {
             uint256 lpStakeReward;
-            (lpStakeReward,) = _calculateLPStakeReward(stakeTime);
+            (lpStakeReward,) = _calculateLPStakeReward(stakeTime, user);
             return lpStakeReward;
         }
         return 0;
@@ -232,6 +232,7 @@ contract Auction is Context, Ownable {
             if (_userStakeTimes[user][i] == stakeTime) {
                 _userStakeTimes[user][i] = _userStakeTimes[user][_userStakeTimes[user].length - 1];
                 _userStakeTimes[user].pop();
+                break;
             }
         }
         emit Unstake(unstakeRewardAmount, stakeTime, user);
@@ -263,7 +264,7 @@ contract Auction is Context, Ownable {
         require(_LPStakes[stakeTime][user].amount > 0, "Nothing to unlock");
         uint256 lpStakeReward;
         uint256 lastStakeTime;
-        (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime);
+        (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime, user);
         _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
         _CYCLE.transfer(user, lpStakeReward);
         return lastStakeTime;
@@ -304,11 +305,11 @@ contract Auction is Context, Ownable {
         return cycleStakeReward.mul(95).div(100);
     }
 
-    function _calculateLPStakeReward(uint256 stakeTime) private view returns (uint256, uint256) {
+    function _calculateLPStakeReward(uint256 stakeTime, address user) private view returns (uint256, uint256) {
         uint256 lpStakeReward;
         uint256 accumulativeDailyStakedLP = _accumulativeStakedLP[stakeTime];
-        uint256 amountStaked = _LPStakes[stakeTime][_msgSender()].amount;
-        uint256 lastUnlockTime = _LPStakes[stakeTime][_msgSender()].lastUnlockTime;
+        uint256 amountStaked = _LPStakes[stakeTime][user].amount;
+        uint256 lastUnlockTime = _LPStakes[stakeTime][user].lastUnlockTime;
         for (;lastUnlockTime <= block.timestamp ;) {
             accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
             if (_dailyTotalParticipatedETH[lastUnlockTime] > 0) {
