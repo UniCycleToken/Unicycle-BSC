@@ -237,8 +237,7 @@ contract Auction is Context, Ownable {
         emit Unstake(unstakeRewardAmount, stakeTime, user);
     }
 
-    function stakeLP(address token, uint256 amount) external {
-        require(token == CYCLEWETHAddress, 'Token is not supported');
+    function stakeLP(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
         if (stakeTime > _lastLPStakeTime) {
@@ -256,7 +255,7 @@ contract Auction is Context, Ownable {
         } else {
             _userLPStakeTimes[_msgSender()].push(stakeTime);
         }
-        IERC20(token).transferFrom(_msgSender(), address(this), amount);
+        IERC20(CYCLEWETHAddress).transferFrom(_msgSender(), address(this), amount);
         emit StakeLP(amount, stakeTime, _msgSender());
     }
 

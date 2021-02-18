@@ -107,15 +107,14 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
     await lpToken.approve(this.auction.address, ether('10'), { from: bob });
     expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
     expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('0'));
-    await expectRevert(this.auction.stakeLP(lpTokenAddress, ether('0'), { from: owner }), 'Invalid stake amount');
-    await expectRevert(this.auction.stakeLP(alice, ether('0'), { from: owner }), 'Token is not supported');
-    await this.auction.stakeLP(lpTokenAddress, ether('0.5'), { from: owner });
+    await expectRevert(this.auction.stakeLP(ether('0'), { from: owner }), 'Invalid stake amount');
+    await this.auction.stakeLP(ether('0.5'), { from: owner });
     expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('0.5'));
     expect(await this.auction.getStakedLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0.5'));
-    await this.auction.stakeLP(lpTokenAddress, ether('0.5'), { from: owner });
+    await this.auction.stakeLP(ether('0.5'), { from: owner });
     expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('1'));
     expect(await this.auction.getStakedLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('1'));
-    await this.auction.stakeLP(lpTokenAddress, ether('4'), { from: alice });
+    await this.auction.stakeLP(ether('4'), { from: alice });
     expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('5'));
     expect(await this.auction.getStakedLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('4'));
     expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
@@ -152,7 +151,7 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
     }
     expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('5000'));
     expect(await this.auction.canUnstakeLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('20000'));
-    await this.auction.stakeLP(lpTokenAddress, ether('5'), { from: bob });
+    await this.auction.stakeLP(ether('5'), { from: bob });
     expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('10'));
     for (let i = 0; i < 5; i += 1) {
       // eslint-disable-next-line no-await-in-loop
@@ -191,14 +190,14 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
     const lpToken = await UniswapV2Pair.at(lpTokenAddress);
     await lpToken.approve(this.auction.address, ether('5'), { from: owner });
     expect((await this.auction.getUserLPStakesData(owner, { from: owner })).length).to.equal(0);
-    await this.auction.stakeLP(lpTokenAddress, ether('0.1'), { from: owner });
+    await this.auction.stakeLP(ether('0.1'), { from: owner });
     expect((await this.auction.getUserLPStakesData(owner, { from: owner })).length).to.equal(1);
     expect((await this.auction.getUserLPStakesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
-    await this.auction.stakeLP(lpTokenAddress, ether('0.1'), { from: owner });
+    await this.auction.stakeLP(ether('0.1'), { from: owner });
     expect((await this.auction.getUserLPStakesData(owner, { from: owner })).length).to.equal(1);
     expect((await this.auction.getUserLPStakesData(owner, { from: owner }))[0]).to.be.bignumber.equal(new BN((startTime + 86400 * 3).toString()));
     await time.increase(time.duration.days(1)); // startTime + 86400 * 4
-    await this.auction.stakeLP(lpTokenAddress, ether('0.1'), { from: owner });
+    await this.auction.stakeLP(ether('0.1'), { from: owner });
     expect((await this.auction.getUserLPStakesData(owner, { from: owner })).length).to.equal(2);
     expect((await this.auction.getUserLPStakesData(owner, { from: owner }))[1]).to.be.bignumber.equal(new BN((startTime + 86400 * 4).toString()));
 
@@ -206,7 +205,7 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
       // eslint-disable-next-line no-await-in-loop
       await time.increase(time.duration.days(1));
       // eslint-disable-next-line no-await-in-loop
-      await this.auction.stakeLP(lpTokenAddress, ether('0.1'), { from: owner });
+      await this.auction.stakeLP(ether('0.1'), { from: owner });
     }
     expect((await this.auction.getUserLPStakesData(owner, { from: owner })).length).to.equal(12);
     expect((await this.auction.getUserLPStakesData(owner, { from: owner }))[11]).to.be.bignumber.equal(new BN((startTime + 86400 * 14).toString()));
@@ -230,7 +229,7 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
   //   const lpTokenAddress = await this.factory.getPair(this.weth.address, this.cycle.address);
   //   const lpToken = await UniswapV2Pair.at(lpTokenAddress);
   //   await lpToken.approve(this.auction.address, ether('10'), { from: alice });
-  //   await this.auction.stakeLP(lpTokenAddress, ether('1'), { from: alice });
+  //   await this.auction.stakeLP(ether('1'), { from: alice });
   //   expect(await this.auction.getAccumulativeLP()).to.be.bignumber.equal(ether('1'));
   //   expect(await this.auction.getStakedLP(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('1'));
   //   expect(await this.cycle.balanceOf(this.auction.address)).to.be.bignumber.equal(ether('0'));
