@@ -29,10 +29,9 @@ contract Auction is Context, Ownable {
     mapping(address => uint256[]) private _userStakeTimes;
     mapping(address => uint256[]) private _userLPStakeTimes;
 
-    uint256 private _lastStakeTime;
-    uint256 private _lastLPStakeTime;
+    uint256 private _lastAccumulativeCycleAmountChange;
+    uint256 private _lastAccumulativeLPAmountChange;
 
-    uint256 private _currentAccumulativeCycle;
     uint256 private _currentAccumulativeLP;
 
     uint256[] private _mintTimes;
@@ -66,8 +65,8 @@ contract Auction is Context, Ownable {
         _teamAddress = teamAddress;
         _setLastMintTime(mintTime);
         _isLiquidityAdded = false;
-        _lastStakeTime = mintTime;
-        _lastLPStakeTime = mintTime;
+        _lastAccumulativeCycleAmountChange = mintTime;
+        _lastAccumulativeLPAmountChange = mintTime;
         IUniswapV2Router02 uniswapV2Router02 = IUniswapV2Router02(uniswapV2Router02Address);
         WETHAddress = uniswapV2Router02.WETH();
         address uniswapV2FactoryAddress = uniswapV2Router02.factory();
@@ -102,11 +101,11 @@ contract Auction is Context, Ownable {
     }
 
     function getAccumulativeCycle() external view returns (uint256) {
-        return _currentAccumulativeCycle;
+        return _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange];
     }
 
     function getAccumulativeLP() external view returns (uint256) {
-        return _currentAccumulativeLP;
+        return _accumulativeStakedLP[_lastAccumulativeLPAmountChange];
     }
 
     function getMintTimesLength() external view returns (uint256) {
@@ -205,13 +204,12 @@ contract Auction is Context, Ownable {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
         // uint256 lastStakeTime = getLastStakeTime();
-        if (stakeTime > _lastStakeTime) {
-            _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[_lastStakeTime];
+        if (stakeTime > _lastAccumulativeCycleAmountChange) {
+            _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange];
         }
         _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[stakeTime].add(amount);
         _dailyStakedCYCLE[stakeTime][_msgSender()] = _dailyStakedCYCLE[stakeTime][_msgSender()].add(amount);
-        _lastStakeTime = stakeTime;
-        _currentAccumulativeCycle = _currentAccumulativeCycle.add(amount);
+        _lastAccumulativeCycleAmountChange = stakeTime;
         uint256 fivePercentOfStake = amount.div(20);
         _CYCLE.transferFrom(_msgSender(), address(this), amount);
         _CYCLE.burn(amount.sub(fivePercentOfStake));
@@ -229,9 +227,9 @@ contract Auction is Context, Ownable {
         require(_dailyStakedCYCLE[stakeTime][user] > 0, "Nothing to unstake");
         require(stakeTime.add(SECONDS_IN_DAY) < block.timestamp, 'At least 1 day must pass');
         uint256 unstakeRewardAmount = _calculateCycleStakeReward(stakeTime, user);
-        uint256 unStakeTime = _getRightStakeTime();
-        _accumulativeStakedCYCLE[unStakeTime] = _accumulativeStakedCYCLE[_lastStakeTime].sub(_dailyStakedCYCLE[stakeTime][user]);
-        _currentAccumulativeCycle = _currentAccumulativeCycle.sub(_dailyStakedCYCLE[stakeTime][user]);
+        uint256 unstakeTime = _getRightStakeTime();
+        _accumulativeStakedCYCLE[unstakeTime] = _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange].sub(_dailyStakedCYCLE[stakeTime][user]);
+        _lastAccumulativeCycleAmountChange = unstakeTime;
         delete _dailyStakedCYCLE[stakeTime][user];
         user.transfer(unstakeRewardAmount);
         for (uint256 i = 0; i < _userStakeTimes[user].length; i++) {
@@ -247,14 +245,14 @@ contract Auction is Context, Ownable {
     function stakeLP(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
-        if (stakeTime > _lastLPStakeTime) {
-            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[_lastLPStakeTime];
+        if (stakeTime > _lastAccumulativeLPAmountChange) {
+            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange];
         }
         _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[stakeTime].add(amount);
         LPStake storage staker = _LPStakes[stakeTime][_msgSender()];
         staker.amount = staker.amount.add(amount);
         staker.lastUnlockTime = stakeTime;
-        _lastLPStakeTime = stakeTime;
+        _lastAccumulativeLPAmountChange = stakeTime;
         _currentAccumulativeLP = _currentAccumulativeLP.add(amount);
         if (_userLPStakeTimes[_msgSender()].length > 0) {
             if (_userLPStakeTimes[_msgSender()][_userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
@@ -281,7 +279,8 @@ contract Auction is Context, Ownable {
         uint256 lastStakeTime = takeLPReward(stakeTime, user);
         if (lastStakeTime.add(SECONDS_IN_DAY * 2) > block.timestamp) {
             uint256 unstakeTime = _getRightStakeTime();
-            _accumulativeStakedLP[unstakeTime] = _accumulativeStakedLP[_lastLPStakeTime].sub(_LPStakes[stakeTime][user].amount);
+            _accumulativeStakedLP[unstakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange].sub(_LPStakes[stakeTime][user].amount);
+            _lastAccumulativeLPAmountChange = unstakeTime;
             IERC20(CYCLEWETHAddress).transfer(user, _LPStakes[stakeTime][user].amount);
             _currentAccumulativeLP = _currentAccumulativeLP.sub(_LPStakes[stakeTime][user].amount);
             delete _LPStakes[stakeTime][user];
