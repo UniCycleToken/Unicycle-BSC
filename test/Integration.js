@@ -152,8 +152,6 @@ contract('Integration test', async ([owner, alice, bob]) => {
     ///////////////////////////// ^ ok
     const ownerBalance = new BN(await web3.eth.getBalance(owner));
     await this.auction.unstake(startTime + 86400 * 3, owner, { from: owner });
-    console.log((await this.auction.test1()).toString());
-    console.log((await this.auction.test2()).toString());
     expect(await this.auction.canUnstake(startTime + 86400 * 3, owner, { from: owner })).to.be.bignumber.equal(ether('0'));
     expect(await this.auction.canUnstake(startTime + 86400 * 3, alice, { from: alice })).to.be.bignumber.equal(ether('16.625'));
     expect(await this.auction.canUnstake(startTime + 86400 * 8, bob, { from: bob })).to.be.bignumber.equal(ether('14.25'));
