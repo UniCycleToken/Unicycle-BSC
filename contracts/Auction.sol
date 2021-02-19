@@ -159,6 +159,10 @@ contract Auction is Context, Ownable {
         return _mintTimes[_mintTimes.length - 1];
     }
 
+    function takeTeamETHShare() external {
+        _takeTeamETHShare();
+    }
+
     function participate() external payable {
         require(msg.value > 0, "Insufficient participation");
         uint256 lastMintTime = getLastMintTime();
