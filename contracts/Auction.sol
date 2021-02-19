@@ -274,7 +274,8 @@ contract Auction is Context, Ownable {
     function unstakeLP(uint256 stakeTime, address user) external {
         uint256 lastStakeTime = takeLPReward(stakeTime, user);
         if (lastStakeTime.add(SECONDS_IN_DAY * 2) > block.timestamp) {
-            _accumulativeStakedLP[_lastLPStakeTime] = _accumulativeStakedLP[_lastLPStakeTime].sub(_LPStakes[stakeTime][user].amount);
+            uint256 unStakeTime = _getRightStakeTime();
+            _accumulativeStakedLP[unStakeTime] = _accumulativeStakedLP[_lastLPStakeTime].sub(_LPStakes[stakeTime][user].amount);
             IERC20(CYCLEWETHAddress).transfer(user, _LPStakes[stakeTime][user].amount);
             delete _LPStakes[stakeTime][user];
         }
