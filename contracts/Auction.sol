@@ -225,7 +225,8 @@ contract Auction is Context, Ownable {
         require(_dailyStakedCYCLE[stakeTime][user] > 0, "Nothing to unstake");
         require(stakeTime.add(SECONDS_IN_DAY) < block.timestamp, 'At least 1 day must pass');
         uint256 unstakeRewardAmount = _calculateCycleStakeReward(stakeTime, user);
-        _accumulativeStakedCYCLE[_lastStakeTime] = _accumulativeStakedCYCLE[_lastStakeTime].sub(_dailyStakedCYCLE[stakeTime][user]);
+        uint256 unStakeTime = _getRightStakeTime();
+        _accumulativeStakedCYCLE[unStakeTime] = _accumulativeStakedCYCLE[_lastStakeTime].sub(_dailyStakedCYCLE[stakeTime][user]);
         delete _dailyStakedCYCLE[stakeTime][user];
         user.transfer(unstakeRewardAmount);
         for (uint256 i = 0; i < _userStakeTimes[user].length; i++) {
