@@ -331,6 +331,7 @@ contract Auction is Context, Ownable {
     function _takeTeamETHShare() private {
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
+
         if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) <= block.timestamp) {
             // mint tokens for first day
             _CYCLE.mint(50_000 * 10 ** 18);
@@ -352,6 +353,7 @@ contract Auction is Context, Ownable {
 
             _isLiquidityAdded = true;
         }
+
         _teamAddress.transfer(teamETHShare);
     }
 
