@@ -1,6 +1,6 @@
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -162,7 +162,7 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -189,7 +189,7 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -344,7 +344,7 @@ interface IWETH {
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -473,7 +473,10 @@ contract Auction is Context, Ownable {
     mapping(address => uint256[]) private _userStakeTimes;
     mapping(address => uint256[]) private _userLPStakeTimes;
 
-    uint256 private _currentAccumulativeLP;
+    uint256 private _lastAccumulativeCycleAmountChange;
+    uint256 private _lastAccumulativeLPAmountChange;
+
+    uint256 public _auctionStartTime;
 
     uint256[] private _mintTimes;
     // timestamp => address => data
@@ -498,16 +501,18 @@ contract Auction is Context, Ownable {
     event StakeLP(uint256 amount, uint256 stakeTime, address account);
     event UnstakeLP(uint256 reward, uint256 stakeTime, address account);
 
-    constructor(address cycleTokenAddress, address uniswapV2Router02Address, uint256 mintTime, address payable teamAddress) public {
+    constructor(address cycleTokenAddress, address uniswapV2Router02Address, uint256 auctionStartTime, address payable teamAddress) public {
         require(cycleTokenAddress != address(0), "ZERO ADDRESS");
         require(uniswapV2Router02Address != address(0), "ZERO ADDRESS");
         require(teamAddress != address(0), "ZERO ADDRESS");
+        uint256 firstMintTime = auctionStartTime.sub(SECONDS_IN_DAY.mul(2));
+        _auctionStartTime = auctionStartTime;
         _CYCLE = ICycleToken(cycleTokenAddress);
         _teamAddress = teamAddress;
-        _setLastMintTime(mintTime);
+        _setLastMintTime(firstMintTime);
         _isLiquidityAdded = false;
-        _lastStakeTime = mintTime;
-        _lastLPStakeTime = mintTime;
+        _lastAccumulativeCycleAmountChange = firstMintTime;
+        _lastAccumulativeLPAmountChange = firstMintTime;
         IUniswapV2Router02 uniswapV2Router02 = IUniswapV2Router02(uniswapV2Router02Address);
         WETHAddress = uniswapV2Router02.WETH();
         address uniswapV2FactoryAddress = uniswapV2Router02.factory();
@@ -542,7 +547,7 @@ contract Auction is Context, Ownable {
     }
 
     function getAccumulativeCycle() external view returns (uint256) {
-        return _accumulativeStakedCYCLE[_lastStakeTime];
+        return _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange];
     }
 
     function getAccumulativeLP() external view returns (uint256) {
@@ -602,15 +607,17 @@ contract Auction is Context, Ownable {
 
     function participate() external payable {
         require(msg.value > 0, "Insufficient participation");
+        require(block.timestamp >= _auctionStartTime, "Auction is not started");
         uint256 lastMintTime = getLastMintTime();
         if (lastMintTime.add(SECONDS_IN_DAY) <= block.timestamp) {
             uint256 newLastMintTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
             _startNextRound(newLastMintTime);
             lastMintTime = getLastMintTime();
             _takeTeamETHShare();
-        } else if (_mintTimes.length == 1) {
-            require(_dailyTotalParticipatedETH[lastMintTime].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
-            require(_dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
+        }
+        if (_mintTimes.length == 2) {
+            require(_dailyTotalParticipatedETH[_mintTimes[1]].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
+            require(_dailyParticipatedETH[_mintTimes[1]][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
         } 
         _dailyTotalParticipatedETH[lastMintTime] = _dailyTotalParticipatedETH[lastMintTime].add(msg.value);
         _dailyParticipatedETH[lastMintTime][_msgSender()] = _dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
@@ -645,12 +652,12 @@ contract Auction is Context, Ownable {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
         // uint256 lastStakeTime = getLastStakeTime();
-        if (stakeTime > _lastStakeTime) {
-            _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[_lastStakeTime];
+        if (stakeTime > _lastAccumulativeCycleAmountChange) {
+            _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange];
         }
         _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[stakeTime].add(amount);
         _dailyStakedCYCLE[stakeTime][_msgSender()] = _dailyStakedCYCLE[stakeTime][_msgSender()].add(amount);
-        _lastStakeTime = stakeTime;
+        _lastAccumulativeCycleAmountChange = stakeTime;
         uint256 fivePercentOfStake = amount.div(20);
         _CYCLE.transferFrom(_msgSender(), address(this), amount);
         _CYCLE.burn(amount.sub(fivePercentOfStake));
@@ -668,20 +675,22 @@ contract Auction is Context, Ownable {
         require(_dailyStakedCYCLE[stakeTime][user] > 0, "Nothing to unstake");
         require(stakeTime.add(SECONDS_IN_DAY) < block.timestamp, 'At least 1 day must pass');
         uint256 unstakeRewardAmount = _calculateCycleStakeReward(stakeTime, user);
+        uint256 unstakeTime = _getRightStakeTime();
+        _accumulativeStakedCYCLE[unstakeTime] = _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange].sub(_dailyStakedCYCLE[stakeTime][user]);
+        _lastAccumulativeCycleAmountChange = unstakeTime;
         delete _dailyStakedCYCLE[stakeTime][user];
         user.transfer(unstakeRewardAmount);
-        _accumulativeStakedCYCLE[_lastStakeTime] = _accumulativeStakedCYCLE[_lastStakeTime].sub(_dailyStakedCYCLE[stakeTime][user]);
         for (uint256 i = 0; i < _userStakeTimes[user].length; i++) {
             if (_userStakeTimes[user][i] == stakeTime) {
                 _userStakeTimes[user][i] = _userStakeTimes[user][_userStakeTimes[user].length - 1];
                 _userStakeTimes[user].pop();
+                break;
             }
         }
         emit Unstake(unstakeRewardAmount, stakeTime, user);
     }
 
-    function stakeLP(address token, uint256 amount) external {
-        require(token == CYCLEWETHAddress, 'Token is not supported');
+    function stakeLP(uint256 amount) external {
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
         if (stakeTime > _lastAccumulativeLPAmountChange) {
@@ -691,7 +700,7 @@ contract Auction is Context, Ownable {
         LPStake storage staker = _LPStakes[stakeTime][_msgSender()];
         staker.amount = staker.amount.add(amount);
         staker.lastUnlockTime = stakeTime;
-        _lastLPStakeTime = stakeTime;
+        _lastAccumulativeLPAmountChange = stakeTime;
         if (_userLPStakeTimes[_msgSender()].length > 0) {
             if (_userLPStakeTimes[_msgSender()][_userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
                 _userLPStakeTimes[_msgSender()].push(stakeTime);
@@ -699,7 +708,7 @@ contract Auction is Context, Ownable {
         } else {
             _userLPStakeTimes[_msgSender()].push(stakeTime);
         }
-        IERC20(token).transferFrom(_msgSender(), address(this), amount);
+        IERC20(CYCLEWETHAddress).transferFrom(_msgSender(), address(this), amount);
         emit StakeLP(amount, stakeTime, _msgSender());
     }
 
@@ -716,7 +725,9 @@ contract Auction is Context, Ownable {
     function unstakeLP(uint256 stakeTime, address user) external {
         uint256 lastStakeTime = takeLPReward(stakeTime, user);
         if (lastStakeTime.add(SECONDS_IN_DAY * 2) > block.timestamp) {
-            _accumulativeStakedLP[_lastLPStakeTime] = _accumulativeStakedLP[_lastLPStakeTime].sub(_LPStakes[stakeTime][user].amount);
+            uint256 unstakeTime = _getRightStakeTime();
+            _accumulativeStakedLP[unstakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange].sub(_LPStakes[stakeTime][user].amount);
+            _lastAccumulativeLPAmountChange = unstakeTime;
             IERC20(CYCLEWETHAddress).transfer(user, _LPStakes[stakeTime][user].amount);
             delete _LPStakes[stakeTime][user];
         }
@@ -774,10 +785,7 @@ contract Auction is Context, Ownable {
     function _takeTeamETHShare() private {
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
-<<<<<<< HEAD
-=======
 
->>>>>>> 3a870efb517b3848d2b56e8bf65fd849e1d1d4e4
         if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) <= block.timestamp) {
             // mint tokens for first day
             _CYCLE.mint(50_000 * 10 ** 18);
@@ -799,10 +807,7 @@ contract Auction is Context, Ownable {
 
             _isLiquidityAdded = true;
         }
-<<<<<<< HEAD
-=======
 
->>>>>>> 3a870efb517b3848d2b56e8bf65fd849e1d1d4e4
         _teamAddress.transfer(teamETHShare);
     }
 
