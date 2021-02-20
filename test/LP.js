@@ -1,3 +1,4 @@
+/* eslint-disable no-underscore-dangle */
 const {
   expectRevert, ether, time, BN,
 } = require('@openzeppelin/test-helpers');
@@ -27,7 +28,7 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
   });
 
   it('check that remove liquidity is blocked', async () => {
-    const startTime = (await this.auction.getLastMintTime()).toNumber();
+    const startTime = (await this.auction._auctionStartTime()).toNumber();
     await time.increase(time.duration.days(2));
     // prepare LPStake for owner
     await this.auction.participate({ from: owner, value: ether('1') });
@@ -55,7 +56,7 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
   });
 
   it('check that remove liquidity is blocked', async () => {
-    const startTime = (await this.auction.getLastMintTime()).toNumber();
+    const startTime = (await this.auction._auctionStartTime()).toNumber();
     await time.increase(time.duration.days(1));
     await this.auction.participate({ from: owner, value: ether('1') });
     await time.increase(time.duration.days(1));
@@ -71,7 +72,7 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
   });
 
   it('check LPStake reward payout', async () => {
-    const startTime = (await this.auction.getLastMintTime()).toNumber();
+    const startTime = (await this.auction._auctionStartTime()).toNumber();
     await time.increase(time.duration.days(2));
     // prepare LPStake for owner
     await this.auction.participate({ from: owner, value: ether('1') });
@@ -175,7 +176,7 @@ contract('LP related test', async ([owner, alice, bob, team]) => {
   });
 
   it('checking that userLPStakes is updating correctly', async () => {
-    const startTime = (await this.auction.getLastMintTime()).toNumber();
+    const startTime = (await this.auction._auctionStartTime()).toNumber();
     await time.increase(time.duration.days(2)); // startTime + 86400 * 2
     // prepare LPStake for owner
     await this.auction.participate({ from: owner, value: ether('1') });

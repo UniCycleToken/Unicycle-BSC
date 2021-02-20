@@ -32,7 +32,7 @@ contract Auction is Context, Ownable {
     uint256 private _lastAccumulativeCycleAmountChange;
     uint256 private _lastAccumulativeLPAmountChange;
 
-    uint256 private _currentAccumulativeLP;
+    uint256 public _auctionStartTime;
 
     uint256[] private _mintTimes;
     // timestamp => address => data
@@ -57,16 +57,18 @@ contract Auction is Context, Ownable {
     event StakeLP(uint256 amount, uint256 stakeTime, address account);
     event UnstakeLP(uint256 reward, uint256 stakeTime, address account);
 
-    constructor(address cycleTokenAddress, address uniswapV2Router02Address, uint256 mintTime, address payable teamAddress) public {
+    constructor(address cycleTokenAddress, address uniswapV2Router02Address, uint256 auctionStartTime, address payable teamAddress) public {
         require(cycleTokenAddress != address(0), "ZERO ADDRESS");
         require(uniswapV2Router02Address != address(0), "ZERO ADDRESS");
         require(teamAddress != address(0), "ZERO ADDRESS");
+        uint256 firstMintTime = auctionStartTime.sub(SECONDS_IN_DAY.mul(2));
+        _auctionStartTime = auctionStartTime;
         _CYCLE = ICycleToken(cycleTokenAddress);
         _teamAddress = teamAddress;
-        _setLastMintTime(mintTime);
+        _setLastMintTime(firstMintTime);
         _isLiquidityAdded = false;
-        _lastAccumulativeCycleAmountChange = mintTime;
-        _lastAccumulativeLPAmountChange = mintTime;
+        _lastAccumulativeCycleAmountChange = firstMintTime;
+        _lastAccumulativeLPAmountChange = firstMintTime;
         IUniswapV2Router02 uniswapV2Router02 = IUniswapV2Router02(uniswapV2Router02Address);
         WETHAddress = uniswapV2Router02.WETH();
         address uniswapV2FactoryAddress = uniswapV2Router02.factory();
@@ -161,15 +163,17 @@ contract Auction is Context, Ownable {
 
     function participate() external payable {
         require(msg.value > 0, "Insufficient participation");
+        require(block.timestamp >= _auctionStartTime, "Auction is not started");
         uint256 lastMintTime = getLastMintTime();
         if (lastMintTime.add(SECONDS_IN_DAY) <= block.timestamp) {
             uint256 newLastMintTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
             _startNextRound(newLastMintTime);
             lastMintTime = getLastMintTime();
             _takeTeamETHShare();
-        } else if (_mintTimes.length == 1) {
-            require(_dailyTotalParticipatedETH[lastMintTime].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
-            require(_dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
+        }
+        if (_mintTimes.length == 2) {
+            require(_dailyTotalParticipatedETH[_mintTimes[1]].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
+            require(_dailyParticipatedETH[_mintTimes[1]][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
         } 
         _dailyTotalParticipatedETH[lastMintTime] = _dailyTotalParticipatedETH[lastMintTime].add(msg.value);
         _dailyParticipatedETH[lastMintTime][_msgSender()] = _dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
@@ -253,7 +257,6 @@ contract Auction is Context, Ownable {
         staker.amount = staker.amount.add(amount);
         staker.lastUnlockTime = stakeTime;
         _lastAccumulativeLPAmountChange = stakeTime;
-        _currentAccumulativeLP = _currentAccumulativeLP.add(amount);
         if (_userLPStakeTimes[_msgSender()].length > 0) {
             if (_userLPStakeTimes[_msgSender()][_userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
                 _userLPStakeTimes[_msgSender()].push(stakeTime);
@@ -282,7 +285,6 @@ contract Auction is Context, Ownable {
             _accumulativeStakedLP[unstakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange].sub(_LPStakes[stakeTime][user].amount);
             _lastAccumulativeLPAmountChange = unstakeTime;
             IERC20(CYCLEWETHAddress).transfer(user, _LPStakes[stakeTime][user].amount);
-            _currentAccumulativeLP = _currentAccumulativeLP.sub(_LPStakes[stakeTime][user].amount);
             delete _LPStakes[stakeTime][user];
         }
     }
