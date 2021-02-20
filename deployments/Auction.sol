@@ -473,8 +473,7 @@ contract Auction is Context, Ownable {
     mapping(address => uint256[]) private _userStakeTimes;
     mapping(address => uint256[]) private _userLPStakeTimes;
 
-    uint256 private _lastStakeTime;
-    uint256 private _lastLPStakeTime;
+    uint256 private _currentAccumulativeLP;
 
     uint256[] private _mintTimes;
     // timestamp => address => data
@@ -547,7 +546,7 @@ contract Auction is Context, Ownable {
     }
 
     function getAccumulativeLP() external view returns (uint256) {
-        return _accumulativeStakedLP[_lastLPStakeTime];
+        return _accumulativeStakedLP[_lastAccumulativeLPAmountChange];
     }
 
     function getMintTimesLength() external view returns (uint256) {
@@ -591,7 +590,7 @@ contract Auction is Context, Ownable {
     function canUnstakeLP(uint256 stakeTime, address user) external view returns (uint256) {
         if (_LPStakes[stakeTime][user].amount > 0) {
             uint256 lpStakeReward;
-            (lpStakeReward,) = _calculateLPStakeReward(stakeTime);
+            (lpStakeReward,) = _calculateLPStakeReward(stakeTime, user);
             return lpStakeReward;
         }
         return 0;
@@ -685,8 +684,8 @@ contract Auction is Context, Ownable {
         require(token == CYCLEWETHAddress, 'Token is not supported');
         require(amount > 0, "Invalid stake amount");
         uint256 stakeTime = _getRightStakeTime();
-        if (stakeTime > _lastLPStakeTime) {
-            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[_lastLPStakeTime];
+        if (stakeTime > _lastAccumulativeLPAmountChange) {
+            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange];
         }
         _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[stakeTime].add(amount);
         LPStake storage staker = _LPStakes[stakeTime][_msgSender()];
@@ -708,7 +707,7 @@ contract Auction is Context, Ownable {
         require(_LPStakes[stakeTime][user].amount > 0, "Nothing to unlock");
         uint256 lpStakeReward;
         uint256 lastStakeTime;
-        (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime);
+        (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime, user);
         _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
         _CYCLE.transfer(user, lpStakeReward);
         return lastStakeTime;
@@ -749,11 +748,11 @@ contract Auction is Context, Ownable {
         return cycleStakeReward.mul(95).div(100);
     }
 
-    function _calculateLPStakeReward(uint256 stakeTime) private view returns (uint256, uint256) {
+    function _calculateLPStakeReward(uint256 stakeTime, address user) private view returns (uint256, uint256) {
         uint256 lpStakeReward;
         uint256 accumulativeDailyStakedLP = _accumulativeStakedLP[stakeTime];
-        uint256 amountStaked = _LPStakes[stakeTime][_msgSender()].amount;
-        uint256 lastUnlockTime = _LPStakes[stakeTime][_msgSender()].lastUnlockTime;
+        uint256 amountStaked = _LPStakes[stakeTime][user].amount;
+        uint256 lastUnlockTime = _LPStakes[stakeTime][user].lastUnlockTime;
         for (;lastUnlockTime <= block.timestamp ;) {
             accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
             if (_dailyTotalParticipatedETH[lastUnlockTime] > 0) {
@@ -775,6 +774,10 @@ contract Auction is Context, Ownable {
     function _takeTeamETHShare() private {
         uint256 teamETHShare = _teamETHShare;
         _teamETHShare = 0;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3a870efb517b3848d2b56e8bf65fd849e1d1d4e4
         if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) <= block.timestamp) {
             // mint tokens for first day
             _CYCLE.mint(50_000 * 10 ** 18);
@@ -796,6 +799,10 @@ contract Auction is Context, Ownable {
 
             _isLiquidityAdded = true;
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3a870efb517b3848d2b56e8bf65fd849e1d1d4e4
         _teamAddress.transfer(teamETHShare);
     }
 
