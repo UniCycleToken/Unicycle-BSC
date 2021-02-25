@@ -349,7 +349,7 @@ contract Auction is Context, Ownable {
             teamBNBShare = teamBNBShare.add(_dailyTotalParticipatedBNB[_mintTimes[1]].mul(95).div(100)).div(2);
 
             IUniswapV2Pair CYCLEBNB = IUniswapV2Pair(CYCLEBNBAddress);
-            IBNB BNB = IWETH(BNBAddress);
+            IWETH BNB = IWETH(BNBAddress);
             BNB.deposit{ value : teamBNBShare }();
 
             uint256 lpMinted = CYCLEBNB.balanceOf(_teamAddress);
