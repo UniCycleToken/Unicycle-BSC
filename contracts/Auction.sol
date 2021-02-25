@@ -17,8 +17,8 @@ contract Auction is Context, Ownable {
         uint256 lastUnlockTime;
     }
 
-    address public WETHAddress;
-    address public CYCLEWETHAddress;
+    address public BNBAddress;
+    address public CYCLEBNBAddress;
 
     uint256 private constant DAILY_MINT_CAP = 100_000 * 10 ** 18;
     uint256 private constant FIRST_DAY_HARD_CAP = 1_500 * 10 ** 18;
@@ -36,16 +36,16 @@ contract Auction is Context, Ownable {
 
     uint256[] private _mintTimes;
     // timestamp => address => data
-    mapping(uint256 => mapping(address => uint256)) private _dailyParticipatedETH;
+    mapping(uint256 => mapping(address => uint256)) private _dailyParticipatedBNB;
     mapping(uint256 => mapping(address => uint256)) private _dailyStakedCYCLE;
     mapping(uint256 => mapping(address => LPStake)) private _LPStakes;
     // timestamp => data
-    mapping(uint256 => uint256) private _dailyTotalParticipatedETH;
+    mapping(uint256 => uint256) private _dailyTotalParticipatedBNB;
     mapping(uint256 => uint256) private _accumulativeStakedCYCLE;
     mapping(uint256 => uint256) private _accumulativeStakedLP;
 
     address payable private _teamAddress;
-    uint256 private _teamETHShare;
+    uint256 private _teamBNBShare;
     bool private _isLiquidityAdded;
 
     ICycleToken private _CYCLE;
@@ -70,12 +70,12 @@ contract Auction is Context, Ownable {
         _lastAccumulativeCycleAmountChange = firstMintTime;
         _lastAccumulativeLPAmountChange = firstMintTime;
         IUniswapV2Router02 uniswapV2Router02 = IUniswapV2Router02(uniswapV2Router02Address);
-        WETHAddress = uniswapV2Router02.WETH();
+        BNBAddress = uniswapV2Router02.WETH();
         address uniswapV2FactoryAddress = uniswapV2Router02.factory();
         IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2FactoryAddress);
-        CYCLEWETHAddress = factory.getPair(WETHAddress, address(_CYCLE));
-        if (CYCLEWETHAddress == address(0))
-            CYCLEWETHAddress = factory.createPair(WETHAddress, address(_CYCLE));
+        CYCLEBNBAddress = factory.getPair(BNBAddress, address(_CYCLE));
+        if (CYCLEBNBAddress == address(0))
+            CYCLEBNBAddress = factory.createPair(BNBAddress, address(_CYCLE));
     }
 
     function getUserParticipatesData(address user) external view returns (uint256[] memory) {
@@ -95,7 +95,7 @@ contract Auction is Context, Ownable {
     }
 
     function getTeamInfo() external onlyOwner view returns (uint256, address) {
-        return (_teamETHShare, _teamAddress);
+        return (_teamBNBShare, _teamAddress);
     }
 
     function getLastLpUnlockTime(uint256 stakeTime, address user) external view returns (uint256) {
@@ -114,8 +114,8 @@ contract Auction is Context, Ownable {
         return _mintTimes.length;
     }
 
-    function getParticipatedETHAmount(uint256 mintTime, address user) external view returns (uint256) {
-        return _dailyParticipatedETH[mintTime][user];
+    function getParticipatedBNBAmount(uint256 mintTime, address user) external view returns (uint256) {
+        return _dailyParticipatedBNB[mintTime][user];
     }
 
     function getStakedCycle(uint256 stakeTime, address user) external view returns (uint256) {
@@ -127,16 +127,16 @@ contract Auction is Context, Ownable {
     }
 
     function getTotalParticipateAmount(address user) external view returns (uint256) {
-        uint256 totalEth;
+        uint256 totalBNB;
         for (uint256 i = 0; i < _mintTimes.length; i++) {
-            totalEth = totalEth.add(_dailyParticipatedETH[_mintTimes[i]][user]);
+            totalBNB = totalBNB.add(_dailyParticipatedBNB[_mintTimes[i]][user]);
         }
-        return totalEth;
+        return totalBNB;
     }
 
     function canTakeShare(uint256 mintTime, address user) external view returns (uint256) {
-        if (_dailyTotalParticipatedETH[mintTime] > 0) {
-            return _dailyParticipatedETH[mintTime][user].mul(DAILY_MINT_CAP).div(_dailyTotalParticipatedETH[mintTime]);
+        if (_dailyTotalParticipatedBNB[mintTime] > 0) {
+            return _dailyParticipatedBNB[mintTime][user].mul(DAILY_MINT_CAP).div(_dailyTotalParticipatedBNB[mintTime]);
         }
         return 0;
     }
@@ -169,15 +169,15 @@ contract Auction is Context, Ownable {
             uint256 newLastMintTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
             _startNextRound(newLastMintTime);
             lastMintTime = getLastMintTime();
-            _takeTeamETHShare();
+            _takeTeamBNBShare();
         }
         if (_mintTimes.length == 2) {
-            require(_dailyTotalParticipatedETH[_mintTimes[1]].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
-            require(_dailyParticipatedETH[_mintTimes[1]][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
+            require(_dailyTotalParticipatedBNB[_mintTimes[1]].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
+            require(_dailyParticipatedBNB[_mintTimes[1]][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
         } 
-        _dailyTotalParticipatedETH[lastMintTime] = _dailyTotalParticipatedETH[lastMintTime].add(msg.value);
-        _dailyParticipatedETH[lastMintTime][_msgSender()] = _dailyParticipatedETH[lastMintTime][_msgSender()].add(msg.value);
-        _teamETHShare = _teamETHShare.add(msg.value.div(20));
+        _dailyTotalParticipatedBNB[lastMintTime] = _dailyTotalParticipatedBNB[lastMintTime].add(msg.value);
+        _dailyParticipatedBNB[lastMintTime][_msgSender()] = _dailyParticipatedBNB[lastMintTime][_msgSender()].add(msg.value);
+        _teamBNBShare = _teamBNBShare.add(msg.value.div(20));
         if (_userParticipateTimes[_msgSender()].length > 0) {
             if (_userParticipateTimes[_msgSender()][_userParticipateTimes[_msgSender()].length - 1] != lastMintTime) {
                 _userParticipateTimes[_msgSender()].push(lastMintTime);
@@ -189,11 +189,11 @@ contract Auction is Context, Ownable {
     }
 
     function takeShare(uint256 mintTime, address user) external {
-        require(_dailyParticipatedETH[mintTime][user] > 0, "Nothing to unlock");
+        require(_dailyParticipatedBNB[mintTime][user] > 0, "Nothing to unlock");
         require(mintTime.add(SECONDS_IN_DAY) < block.timestamp, "At least 1 day must pass");
-        uint256 participatedAmount = _dailyParticipatedETH[mintTime][user];
-        delete _dailyParticipatedETH[mintTime][user];
-        uint256 cycleSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedETH[mintTime]);
+        uint256 participatedAmount = _dailyParticipatedBNB[mintTime][user];
+        delete _dailyParticipatedBNB[mintTime][user];
+        uint256 cycleSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedBNB[mintTime]);
         for (uint256 i = 0; i < _userParticipateTimes[user].length; i++) {
             if (_userParticipateTimes[user][i] == mintTime) {
                 _userParticipateTimes[user][i] = _userParticipateTimes[user][_userParticipateTimes[user].length - 1];
@@ -264,7 +264,7 @@ contract Auction is Context, Ownable {
         } else {
             _userLPStakeTimes[_msgSender()].push(stakeTime);
         }
-        IERC20(CYCLEWETHAddress).transferFrom(_msgSender(), address(this), amount);
+        IERC20(CYCLEBNBAddress).transferFrom(_msgSender(), address(this), amount);
         emit StakeLP(amount, stakeTime, _msgSender());
     }
 
@@ -284,7 +284,7 @@ contract Auction is Context, Ownable {
             uint256 unstakeTime = _getRightStakeTime();
             _accumulativeStakedLP[unstakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange].sub(_LPStakes[stakeTime][user].amount);
             _lastAccumulativeLPAmountChange = unstakeTime;
-            IERC20(CYCLEWETHAddress).transfer(user, _LPStakes[stakeTime][user].amount);
+            IERC20(CYCLEBNBAddress).transfer(user, _LPStakes[stakeTime][user].amount);
             delete _LPStakes[stakeTime][user];
         }
     }
@@ -303,10 +303,10 @@ contract Auction is Context, Ownable {
         uint256 accumulativeDailyStakedCycle = _accumulativeStakedCYCLE[stakeTime];
         uint256 amountStaked = _dailyStakedCYCLE[stakeTime][user];
         for (uint256 i = stakeTime; i <= block.timestamp && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
-            if (_dailyTotalParticipatedETH[i] > 0) {
+            if (_dailyTotalParticipatedBNB[i] > 0) {
                 accumulativeDailyStakedCycle = _accumulativeStakedCYCLE[i] == 0 ? accumulativeDailyStakedCycle : _accumulativeStakedCYCLE[i];
                 cycleStakeReward = cycleStakeReward.add(
-                    _dailyTotalParticipatedETH[i]
+                    _dailyTotalParticipatedBNB[i]
                         .mul(amountStaked)
                         .div(accumulativeDailyStakedCycle)
                 );
@@ -322,7 +322,7 @@ contract Auction is Context, Ownable {
         uint256 lastUnlockTime = _LPStakes[stakeTime][user].lastUnlockTime;
         for (;lastUnlockTime <= block.timestamp ;) {
             accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
-            if (_dailyTotalParticipatedETH[lastUnlockTime] > 0) {
+            if (_dailyTotalParticipatedBNB[lastUnlockTime] > 0) {
                 lpStakeReward = lpStakeReward.add(
                     DAILY_MINT_CAP
                         .div(20)
@@ -338,33 +338,33 @@ contract Auction is Context, Ownable {
         return (lpStakeReward, lastUnlockTime.sub(SECONDS_IN_DAY));
     }
 
-    function _takeTeamETHShare() private {
-        uint256 teamETHShare = _teamETHShare;
-        _teamETHShare = 0;
+    function _takeTeamBNBShare() private {
+        uint256 teamBNBShare = _teamBNBShare;
+        _teamBNBShare = 0;
 
         if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) <= block.timestamp) {
             // mint tokens for first day
             _CYCLE.mint(50_000 * 10 ** 18);
             // (5% + 95%) / 2
-            teamETHShare = teamETHShare.add(_dailyTotalParticipatedETH[_mintTimes[1]].mul(95).div(100)).div(2);
+            teamBNBShare = teamBNBShare.add(_dailyTotalParticipatedBNB[_mintTimes[1]].mul(95).div(100)).div(2);
 
-            IUniswapV2Pair CYCLEWETH = IUniswapV2Pair(CYCLEWETHAddress);
-            IWETH WETH = IWETH(WETHAddress);
-            WETH.deposit{ value : teamETHShare }();
+            IUniswapV2Pair CYCLEBNB = IUniswapV2Pair(CYCLEBNBAddress);
+            IBNB BNB = IWETH(BNBAddress);
+            BNB.deposit{ value : teamBNBShare }();
 
-            uint256 lpMinted = CYCLEWETH.balanceOf(_teamAddress);
+            uint256 lpMinted = CYCLEBNB.balanceOf(_teamAddress);
 
-            WETH.transfer(CYCLEWETHAddress, teamETHShare);
-            _CYCLE.transfer(CYCLEWETHAddress, 50_000 * 10 ** 18);
-            CYCLEWETH.mint(_teamAddress);
+            BNB.transfer(CYCLEBNBAddress, teamBNBShare);
+            _CYCLE.transfer(CYCLEBNBAddress, 50_000 * 10 ** 18);
+            CYCLEBNB.mint(_teamAddress);
 
-            lpMinted = CYCLEWETH.balanceOf(_teamAddress).sub(lpMinted);
+            lpMinted = CYCLEBNB.balanceOf(_teamAddress).sub(lpMinted);
             require(lpMinted > 0, "liquidity add failed");
 
             _isLiquidityAdded = true;
         }
 
-        _teamAddress.transfer(teamETHShare);
+        _teamAddress.transfer(teamBNBShare);
     }
 
     function _setLastMintTime(uint256 mintTime) private {
