@@ -684,34 +684,34 @@ contract Auction is Context, Ownable, Epoch {
                     ap.availableCycle = ap.availableCycle.add(newReward);
                 }
 
-                bool distributedBNB = false;
+                if (cycleStakers.length > 0) {
+                    for (uint256 i = 0; i < cycleStakers.length; i++) {
+                        address cycleStaker = cycleStakers[i];
 
-                for (uint256 i = 0; i < cycleStakers.length; i++) {
-                    address cycleStaker = cycleStakers[i];
+                        CycleStake[] storage stakes = cycleStakes[cycleStaker];
 
-                    CycleStake[] storage stakes = cycleStakes[cycleStaker];
-
-                    for (uint256 j = 0; j < stakes.length; j++) {
-                        if (
-                            stakes[j].active &&
-                            getCurrentEpoch().sub(stakes[j].epoch) < 100
-                        ) {
-                            distributedBNB = true;
-                            stakes[j].BNBEarned = stakes[j].BNBEarned.add(
-                                dailyTotalBNB[getLastEpoch()]
-                                    .mul(percentMax - teamSharePercent)
-                                    .div(percentMax)
-                                    .mul(stakes[j].cycleStaked)
-                                    .div(totalCycleStaked)
-                            );
+                        for (uint256 j = 0; j < stakes.length; j++) {
+                            if (
+                                stakes[j].active &&
+                                getCurrentEpoch().sub(stakes[j].epoch) < 100
+                            ) {
+                                stakes[j].BNBEarned = stakes[j].BNBEarned.add(
+                                    dailyTotalBNB[getLastEpoch()]
+                                        .mul(percentMax - teamSharePercent)
+                                        .div(percentMax)
+                                        .mul(stakes[j].cycleStaked)
+                                        .div(totalCycleStaked)
+                                );
+                            }
                         }
                     }
-
-                    if (distributedBNB == false) {
-                        teamShare = teamShare.add(
-                            dailyTotalBNB[getLastEpoch()]
-                        );
-                    }
+                } else {
+                    // If no stakers, then send to the team fund
+                    teamShare = teamShare.add(
+                        dailyTotalBNB[getLastEpoch()]
+                            .mul(percentMax - teamSharePercent)
+                            .div(percentMax)
+                    );
                 }
             }
         }
@@ -895,10 +895,12 @@ contract Auction is Context, Ownable, Epoch {
         );
 
         flipStakes[_msgSender()].flipStaked = 0;
+
+        deleteFromArrayByValue(_msgSender(), flipStakers);
     }
 
     // Team can withdraw its share if wants
-    function takeTeamShare() public {
+    function takeTeamShare() public distributeRewards updateEpoch {
         if (teamShare > 0) {
             teamAddress.transfer(teamShare);
             teamShare = 0;
@@ -981,14 +983,16 @@ contract Auction is Context, Ownable, Epoch {
         returns (
             uint256,
             uint256,
-            uint256
+            uint256,
+            bool
         )
     {
         return (
             cycleStakes[user][index].epoch,
             cycleStakes[user][index].cycleStaked,
             cycleStakes[user][index].BNBEarned +
-                calculateNewCycleEarned(user, index)
+                calculateNewCycleEarned(user, index),
+            cycleStakes[user][index].active
         );
     }
 
