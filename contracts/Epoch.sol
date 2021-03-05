@@ -32,12 +32,6 @@ contract Epoch is Ownable {
         _;
     }
 
-    modifier updateEpoch {
-        _;
-
-        lastExecutedAt = block.timestamp;
-    }
-
     /* ========== VIEW FUNCTIONS ========== */
 
     // epoch
@@ -47,17 +41,6 @@ contract Epoch is Ownable {
 
     function getCurrentEpoch() public view returns (uint256) {
         return Math.max(startTime, block.timestamp).sub(startTime).div(period);
-    }
-
-    function getNextEpoch() public view returns (uint256) {
-        if (startTime == lastExecutedAt) {
-            return getLastEpoch();
-        }
-        return getLastEpoch().add(1);
-    }
-
-    function nextEpochPoint() public view returns (uint256) {
-        return startTime.add(getNextEpoch().mul(period));
     }
 
     // params
@@ -71,7 +54,13 @@ contract Epoch is Ownable {
 
     /* ========== GOVERNANCE ========== */
 
-    function setPeriod(uint256 _period) external onlyOwner {
-        period = _period;
+    // function setPeriod(uint256 _period) external onlyOwner {
+    //     period = _period;
+    // }
+
+    // ========== MUTATE FUNCTIONS ==========
+
+    function updateEpoch() internal {
+        lastExecutedAt = block.timestamp;
     }
 }

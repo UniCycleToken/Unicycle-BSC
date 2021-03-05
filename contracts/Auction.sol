@@ -58,7 +58,7 @@ contract Auction is Context, Ownable, Epoch {
     uint256 public totalFlipStaked;
 
     address payable public teamAddress;
-    uint256 public teamShare;
+    uint256 private teamShare;
 
     ICycleToken private cycleToken;
 
@@ -104,7 +104,11 @@ contract Auction is Context, Ownable, Epoch {
 
     modifier distributeRewards {
         if (getLastEpoch() < getCurrentEpoch()) {
-            if (dailyTotalBNB[getLastEpoch()] > 0) {
+            uint256 prevEpoch = getLastEpoch();
+
+            updateEpoch();
+
+            if (dailyTotalBNB[prevEpoch] > 0) {
                 // Distribute the minted tokens to auction participaters
                 for (uint256 i = 0; i < auctionLobbyParticipaters.length; i++) {
                     address participater = auctionLobbyParticipaters[i];
@@ -113,14 +117,15 @@ contract Auction is Context, Ownable, Epoch {
                         auctionLobbyParticipates[participater];
 
                     uint256 newReward =
-                        DAILY_MINT_CAP
-                            .mul(ap.BNBParticipated[getLastEpoch()])
-                            .div(dailyTotalBNB[getLastEpoch()]);
+                        DAILY_MINT_CAP.mul(ap.BNBParticipated[prevEpoch]).div(
+                            dailyTotalBNB[prevEpoch]
+                        );
 
-                    ap.cycleEarned[getLastEpoch()] = newReward;
+                    ap.cycleEarned[prevEpoch] = newReward;
                     ap.availableCycle = ap.availableCycle.add(newReward);
                 }
 
+                // Distribute BNB to cycle stakers
                 if (cycleStakers.length > 0) {
                     for (uint256 i = 0; i < cycleStakers.length; i++) {
                         address cycleStaker = cycleStakers[i];
@@ -133,7 +138,7 @@ contract Auction is Context, Ownable, Epoch {
                                 getCurrentEpoch().sub(stakes[j].epoch) < 100
                             ) {
                                 stakes[j].BNBEarned = stakes[j].BNBEarned.add(
-                                    dailyTotalBNB[getLastEpoch()]
+                                    dailyTotalBNB[prevEpoch]
                                         .mul(percentMax - teamSharePercent)
                                         .div(percentMax)
                                         .mul(stakes[j].cycleStaked)
@@ -145,7 +150,7 @@ contract Auction is Context, Ownable, Epoch {
                 } else {
                     // If no stakers, then send to the team fund
                     teamShare = teamShare.add(
-                        dailyTotalBNB[getLastEpoch()]
+                        dailyTotalBNB[prevEpoch]
                             .mul(percentMax - teamSharePercent)
                             .div(percentMax)
                     );
@@ -163,7 +168,6 @@ contract Auction is Context, Ownable, Epoch {
         checkValue(msg.value)
         checkStartTime
         distributeRewards
-        updateEpoch
     {
         uint256 currentEpoch = getCurrentEpoch();
 
@@ -184,7 +188,12 @@ contract Auction is Context, Ownable, Epoch {
             .BNBParticipated[currentEpoch]
             .add(msg.value);
 
-        auctionParticipate.epoches.push(currentEpoch);
+        if (
+            auctionParticipate.epoches[auctionParticipate.epoches.length - 1] <
+            currentEpoch
+        ) {
+            auctionParticipate.epoches.push(currentEpoch);
+        }
 
         dailyTotalBNB[currentEpoch] = dailyTotalBNB[currentEpoch].add(
             msg.value
@@ -198,7 +207,7 @@ contract Auction is Context, Ownable, Epoch {
         emit Participate(msg.value, currentEpoch, _msgSender());
     }
 
-    function takeAuctionLobbyShare() external distributeRewards updateEpoch {
+    function takeAuctionLobbyShare() external distributeRewards {
         require(
             auctionLobbyParticipates[_msgSender()].availableCycle > 0,
             "Nothing to withdraw"
@@ -219,7 +228,6 @@ contract Auction is Context, Ownable, Epoch {
         checkValue(amount)
         checkStartTime
         distributeRewards
-        updateEpoch
     {
         CycleStake[] storage stakes = cycleStakes[_msgSender()];
 
@@ -245,7 +253,7 @@ contract Auction is Context, Ownable, Epoch {
         emit Stake(amount, getCurrentEpoch(), _msgSender());
     }
 
-    function unstake(uint256 index) external distributeRewards updateEpoch {
+    function unstake(uint256 index) external distributeRewards {
         require(
             cycleStakes[_msgSender()][index].BNBEarned > 0,
             "Nothing to unstake"
@@ -337,7 +345,7 @@ contract Auction is Context, Ownable, Epoch {
     }
 
     // Team can withdraw its share if wants
-    function takeTeamShare() public distributeRewards updateEpoch {
+    function takeTeamShare() public distributeRewards {
         if (teamShare > 0) {
             teamAddress.transfer(teamShare);
             teamShare = 0;
@@ -443,6 +451,24 @@ contract Auction is Context, Ownable, Epoch {
 
     function getDailyTotalBNB(uint256 epoch) external view returns (uint256) {
         return dailyTotalBNB[epoch];
+    }
+
+    function getTeamShare() external view returns (uint256) {
+        if (getLastEpoch() < getCurrentEpoch()) {
+            if (dailyTotalBNB[getLastEpoch()] > 0) {
+                if (cycleStakers.length == 0) {
+                    // If no stakers, then send to the team fund
+                    return
+                        teamShare.add(
+                            dailyTotalBNB[getLastEpoch()]
+                                .mul(percentMax - teamSharePercent)
+                                .div(percentMax)
+                        );
+                }
+            }
+        }
+
+        return teamShare;
     }
 
     // =========== Calculate new rewards =============
