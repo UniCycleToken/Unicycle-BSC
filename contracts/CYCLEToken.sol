@@ -1,4 +1,4 @@
-pragma solidity >= 0.6.0 < 0.7.0;
+pragma solidity >=0.6.0 <0.7.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -9,8 +9,8 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
     using SafeMath for uint256;
 
     address public auctionAddress;
-    address public CYCLEWETHAddress;
-    uint256 public CYCLEWETHLastTotalSupply;
+    address public CYCLEBNBAddress;
+    uint256 public CYCLEBNBLastTotalSupply;
 
     mapping(address => bool) private _blacklistedAddresses;
 
@@ -19,8 +19,8 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _;
     }
 
-    modifier onlyIfCYCLEWETHSet() {
-        require(CYCLEWETHAddress != address(0), "CYCLEWETHAddress is not set");
+    modifier onlyIfCYCLEBNBSet() {
+        require(CYCLEBNBAddress != address(0), "CYCLEBNBAddress is not set");
         _;
     }
 
@@ -29,9 +29,16 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _;
     }
 
-    constructor () public ERC20("UniCycle", "CYCLE") {}
+    constructor() public ERC20("UniCycle", "CYCLE") {
+        _mint(_msgSender(), 100_000 * 10**18);
+    }
 
-    function isBlacklisted(address account) external view override returns (bool) {
+    function isBlacklisted(address account)
+        external
+        view
+        override
+        returns (bool)
+    {
         return _blacklistedAddresses[account];
     }
 
@@ -41,14 +48,19 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         auctionAddress = auction;
     }
 
-    function setCYCLEWETHAddress(address CYCLEWETH) external override onlyOwner {
-        require(CYCLEWETH != address(0), "Zero address");
-        require(CYCLEWETHAddress == address(0), "CYCLEWETH already set");
-        CYCLEWETHAddress = CYCLEWETH;
-        CYCLEWETHLastTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+    function setCYCLEBNBAddress(address CYCLEBNB) external override onlyOwner {
+        require(CYCLEBNB != address(0), "Zero address");
+        require(CYCLEBNBAddress == address(0), "CYCLEBNB already set");
+        CYCLEBNBAddress = CYCLEBNB;
+        CYCLEBNBLastTotalSupply = IERC20(CYCLEBNBAddress).totalSupply();
     }
 
-    function mint(uint256 amount) external override onlyAuction onlyIfCYCLEWETHSet {
+    function mint(uint256 amount)
+        external
+        override
+        onlyAuction
+        onlyIfCYCLEBNBSet
+    {
         _mint(auctionAddress, amount);
     }
 
@@ -56,7 +68,11 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _burn(auctionAddress, amount);
     }
 
-    function addToBlacklist(address account) external onlyOwner onlyIfNotBlacklisted(account) {
+    function addToBlacklist(address account)
+        external
+        onlyOwner
+        onlyIfNotBlacklisted(account)
+    {
         _blacklistedAddresses[account] = true;
     }
 
@@ -66,23 +82,38 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
     }
 
     function sync() public {
-        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
-        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
+        uint256 CYCLEBNBCurrentTotalSupply =
+            IERC20(CYCLEBNBAddress).totalSupply();
+        CYCLEBNBLastTotalSupply = CYCLEBNBCurrentTotalSupply;
     }
 
-    function _transfer(address sender, address recipient, uint256 amount) internal override {
-        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal override {
+        if (CYCLEBNBAddress != address(0)) {
+            uint256 CYCLEBNBCurrentTotalSupply =
+                IERC20(CYCLEBNBAddress).totalSupply();
 
-        if (sender == CYCLEWETHAddress) {
-            require(CYCLEWETHLastTotalSupply <= CYCLEWETHCurrentTotalSupply, "Liquidity withdrawals forbidden");
+            if (sender == CYCLEBNBAddress) {
+                require(
+                    CYCLEBNBLastTotalSupply <= CYCLEBNBCurrentTotalSupply,
+                    "Liquidity withdrawals forbidden"
+                );
+            }
+
+            CYCLEBNBLastTotalSupply = CYCLEBNBCurrentTotalSupply;
         }
 
         ERC20._transfer(sender, recipient, amount);
-
-        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
     }
 
-    function _beforeTokenTransfer(address from, address, uint256) internal override onlyIfNotBlacklisted(from) {
+    function _beforeTokenTransfer(
+        address from,
+        address,
+        uint256
+    ) internal override onlyIfNotBlacklisted(from) {
         // solium-disable-previous-line no-empty-blocks
     }
 }

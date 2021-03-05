@@ -7,372 +7,516 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interfaces.sol";
+import "./Epoch.sol";
 
-
-contract Auction is Context, Ownable {
+contract Auction is Context, Ownable, Epoch {
     using SafeMath for uint256;
 
-    struct LPStake {
-        uint256 amount;
-        uint256 lastUnlockTime;
+    struct AuctionLobbyParticipate {
+        uint256[] epoches;
+        mapping(uint256 => uint256) BNBParticipated;
+        mapping(uint256 => uint256) cycleEarned;
+        uint256 availableCycle;
     }
+
+    struct CycleStake {
+        uint256 epoch;
+        uint256 cycleStaked;
+        uint256 BNBEarned;
+        bool active;
+    }
+
+    struct FlipStake {
+        uint256 flipStaked;
+        uint256 cycleEarned;
+    }
+
+    uint256 teamSharePercent = 50;
+    uint256 rewardForFlipStakersPercent = 50;
+    uint256 percentMax = 1000;
 
     address public BNBAddress;
     address public CYCLEBNBAddress;
 
-    uint256 private constant DAILY_MINT_CAP = 100_000 * 10 ** 18;
-    uint256 private constant FIRST_DAY_HARD_CAP = 1_500 * 10 ** 18;
-    uint256 private constant FIRST_DAY_WALLET_CAP = 15 * 10 ** 18;
-    uint256 private constant SECONDS_IN_DAY = 86400;
+    uint256 private constant DAILY_MINT_CAP = 100_000 * 10**18;
 
-    mapping(address => uint256[]) private _userParticipateTimes;
-    mapping(address => uint256[]) private _userStakeTimes;
-    mapping(address => uint256[]) private _userLPStakeTimes;
+    // Can only get via view functions since need to update rewards if required
+    mapping(address => AuctionLobbyParticipate)
+        private auctionLobbyParticipates;
+    mapping(address => CycleStake[]) private cycleStakes;
 
-    uint256 private _lastAccumulativeCycleAmountChange;
-    uint256 private _lastAccumulativeLPAmountChange;
+    mapping(address => FlipStake) private flipStakes;
 
-    uint256 public _auctionStartTime;
+    address[] auctionLobbyParticipaters;
+    address[] cycleStakers;
+    address[] flipStakers;
 
-    uint256[] private _mintTimes;
-    // timestamp => address => data
-    mapping(uint256 => mapping(address => uint256)) private _dailyParticipatedBNB;
-    mapping(uint256 => mapping(address => uint256)) private _dailyStakedCYCLE;
-    mapping(uint256 => mapping(address => LPStake)) private _LPStakes;
-    // timestamp => data
-    mapping(uint256 => uint256) private _dailyTotalParticipatedBNB;
-    mapping(uint256 => uint256) private _accumulativeStakedCYCLE;
-    mapping(uint256 => uint256) private _accumulativeStakedLP;
+    // epoch => data
+    mapping(uint256 => uint256) private dailyTotalBNB;
 
-    address payable private _teamAddress;
-    uint256 private _teamBNBShare;
-    bool private _isLiquidityAdded;
+    uint256 public totalCycleStaked;
+    uint256 public totalFlipStaked;
 
-    ICycleToken private _CYCLE;
+    address payable public teamAddress;
+    uint256 public teamShare;
+
+    ICycleToken private cycleToken;
 
     event Participate(uint256 amount, uint256 participateTime, address account);
     event TakeShare(uint256 reward, uint256 participateTime, address account);
     event Stake(uint256 amount, uint256 stakeTime, address account);
     event Unstake(uint256 reward, uint256 stakeTime, address account);
-    event StakeLP(uint256 amount, uint256 stakeTime, address account);
-    event UnstakeLP(uint256 reward, uint256 stakeTime, address account);
+    event StakeFlip(uint256 amount, uint256 stakeTime, address account);
+    event UnstakeFlip(uint256 reward, uint256 stakeTime, address account);
 
-    constructor(address cycleTokenAddress, address uniswapV2Router02Address, uint256 auctionStartTime, address payable teamAddress) public {
+    constructor(
+        address cycleTokenAddress,
+        address uniswapV2Router02Address,
+        uint256 auctionStartTime,
+        address payable _teamAddress
+    ) public Epoch(900, auctionStartTime, 0) {
+        // 15 mins period for test
         require(cycleTokenAddress != address(0), "ZERO ADDRESS");
         require(uniswapV2Router02Address != address(0), "ZERO ADDRESS");
-        require(teamAddress != address(0), "ZERO ADDRESS");
-        uint256 firstMintTime = auctionStartTime.sub(SECONDS_IN_DAY.mul(2));
-        _auctionStartTime = auctionStartTime;
-        _CYCLE = ICycleToken(cycleTokenAddress);
-        _teamAddress = teamAddress;
-        _setLastMintTime(firstMintTime);
-        _isLiquidityAdded = false;
-        _lastAccumulativeCycleAmountChange = firstMintTime;
-        _lastAccumulativeLPAmountChange = firstMintTime;
-        IUniswapV2Router02 uniswapV2Router02 = IUniswapV2Router02(uniswapV2Router02Address);
+        require(_teamAddress != address(0), "ZERO ADDRESS");
+
+        cycleToken = ICycleToken(cycleTokenAddress);
+        teamAddress = _teamAddress;
+
+        IUniswapV2Router02 uniswapV2Router02 =
+            IUniswapV2Router02(uniswapV2Router02Address);
+
         BNBAddress = uniswapV2Router02.WETH();
+
         address uniswapV2FactoryAddress = uniswapV2Router02.factory();
         IUniswapV2Factory factory = IUniswapV2Factory(uniswapV2FactoryAddress);
-        CYCLEBNBAddress = factory.getPair(BNBAddress, address(_CYCLE));
+        CYCLEBNBAddress = factory.getPair(BNBAddress, cycleTokenAddress);
+
         if (CYCLEBNBAddress == address(0))
-            CYCLEBNBAddress = factory.createPair(BNBAddress, address(_CYCLE));
+            CYCLEBNBAddress = factory.createPair(BNBAddress, cycleTokenAddress);
     }
 
-    function getUserParticipatesData(address user) external view returns (uint256[] memory) {
-        return _userParticipateTimes[user];
+    modifier checkValue(uint256 amount) {
+        require(amount > 0, "Amount cannot be zero");
+
+        _;
     }
 
-    function getUserStakesData(address user) external view returns (uint256[] memory) {
-        return _userStakeTimes[user];
+    modifier distributeRewards {
+        if (getLastEpoch() < getCurrentEpoch()) {
+            if (dailyTotalBNB[getLastEpoch()] > 0) {
+                // Distribute the minted tokens to auction participaters
+                for (uint256 i = 0; i < auctionLobbyParticipaters.length; i++) {
+                    address participater = auctionLobbyParticipaters[i];
+
+                    AuctionLobbyParticipate storage ap =
+                        auctionLobbyParticipates[participater];
+
+                    uint256 newReward =
+                        DAILY_MINT_CAP
+                            .mul(ap.BNBParticipated[getLastEpoch()])
+                            .div(dailyTotalBNB[getLastEpoch()]);
+
+                    ap.cycleEarned[getLastEpoch()] = newReward;
+                    ap.availableCycle = ap.availableCycle.add(newReward);
+                }
+
+                bool distributedBNB = false;
+
+                for (uint256 i = 0; i < cycleStakers.length; i++) {
+                    address cycleStaker = cycleStakers[i];
+
+                    CycleStake[] storage stakes = cycleStakes[cycleStaker];
+
+                    for (uint256 j = 0; j < stakes.length; j++) {
+                        if (
+                            stakes[j].active &&
+                            getCurrentEpoch().sub(stakes[j].epoch) < 100
+                        ) {
+                            distributedBNB = true;
+                            stakes[j].BNBEarned = stakes[j].BNBEarned.add(
+                                dailyTotalBNB[getLastEpoch()]
+                                    .mul(percentMax - teamSharePercent)
+                                    .div(percentMax)
+                                    .mul(stakes[j].cycleStaked)
+                                    .div(totalCycleStaked)
+                            );
+                        }
+                    }
+
+                    if (distributedBNB == false) {
+                        teamShare = teamShare.add(
+                            dailyTotalBNB[getLastEpoch()]
+                        );
+                    }
+                }
+            }
+        }
+
+        _;
     }
 
-    function getUserLPStakesData(address user) external view returns (uint256[] memory) {
-        return _userLPStakeTimes[user];
+    // Participate in auction lobby
+    function participate()
+        external
+        payable
+        checkValue(msg.value)
+        checkStartTime
+        distributeRewards
+        updateEpoch
+    {
+        uint256 currentEpoch = getCurrentEpoch();
+
+        // mint tokens only when the first auction participate happens in each epoch
+        if (dailyTotalBNB[currentEpoch] == 0) {
+            cycleToken.mint(DAILY_MINT_CAP);
+            takeTeamShare();
+        }
+
+        AuctionLobbyParticipate storage auctionParticipate =
+            auctionLobbyParticipates[_msgSender()];
+
+        if (auctionParticipate.epoches.length == 0) {
+            auctionLobbyParticipaters.push(_msgSender());
+        }
+
+        auctionParticipate.BNBParticipated[currentEpoch] = auctionParticipate
+            .BNBParticipated[currentEpoch]
+            .add(msg.value);
+
+        auctionParticipate.epoches.push(currentEpoch);
+
+        dailyTotalBNB[currentEpoch] = dailyTotalBNB[currentEpoch].add(
+            msg.value
+        );
+
+        // 5% of the deposited BNB goes to team
+        teamShare = teamShare.add(
+            msg.value.mul(teamSharePercent).div(percentMax)
+        );
+
+        emit Participate(msg.value, currentEpoch, _msgSender());
     }
+
+    function takeAuctionLobbyShare() external distributeRewards updateEpoch {
+        require(
+            auctionLobbyParticipates[_msgSender()].availableCycle > 0,
+            "Nothing to withdraw"
+        );
+
+        AuctionLobbyParticipate storage ap =
+            auctionLobbyParticipates[_msgSender()];
+
+        cycleToken.transfer(_msgSender(), ap.availableCycle);
+
+        emit TakeShare(ap.availableCycle, getCurrentEpoch(), _msgSender());
+
+        ap.availableCycle = 0;
+    }
+
+    function stake(uint256 amount)
+        external
+        checkValue(amount)
+        checkStartTime
+        distributeRewards
+        updateEpoch
+    {
+        CycleStake[] storage stakes = cycleStakes[_msgSender()];
+
+        uint256 activeLen = 0;
+
+        for (uint256 i = 0; i < stakes.length; i++) {
+            if (stakes[i].active) {
+                activeLen++;
+            }
+        }
+
+        if (activeLen == 0) {
+            cycleStakers.push(_msgSender());
+        }
+
+        stakes.push(CycleStake(getCurrentEpoch(), amount, 0, true));
+        totalCycleStaked = totalCycleStaked.add(amount);
+
+        cycleToken.transferFrom(_msgSender(), address(this), amount);
+
+        distributeToFlipStakersAndBurn(amount);
+
+        emit Stake(amount, getCurrentEpoch(), _msgSender());
+    }
+
+    function unstake(uint256 index) external distributeRewards updateEpoch {
+        require(
+            cycleStakes[_msgSender()][index].BNBEarned > 0,
+            "Nothing to unstake"
+        );
+        require(
+            cycleStakes[_msgSender()][index].active,
+            "You already unstaked for this stake"
+        );
+
+        uint256 reward = cycleStakes[_msgSender()][index].BNBEarned;
+        _msgSender().transfer(reward);
+
+        totalCycleStaked = totalCycleStaked.sub(
+            cycleStakes[_msgSender()][index].cycleStaked
+        );
+
+        // Deactivate this stake
+        cycleStakes[_msgSender()][index].active = false;
+
+        uint256 activeLen = 0;
+
+        for (uint256 i = 0; i < cycleStakes[_msgSender()].length; i++) {
+            if (cycleStakes[_msgSender()][i].active) {
+                activeLen++;
+            }
+        }
+
+        if (activeLen == 0) {
+            deleteFromArrayByValue(_msgSender(), cycleStakers);
+        }
+
+        emit Unstake(reward, getCurrentEpoch(), _msgSender());
+    }
+
+    function stakeFlip(uint256 amount)
+        external
+        checkValue(amount)
+        checkStartTime
+    {
+        FlipStake storage flipStake = flipStakes[_msgSender()];
+
+        if (flipStake.flipStaked == 0) {
+            flipStakers.push(_msgSender());
+        }
+
+        flipStake.flipStaked = flipStake.flipStaked.add(amount);
+        totalFlipStaked = totalFlipStaked.add(amount);
+
+        IERC20(CYCLEBNBAddress).transferFrom(
+            _msgSender(),
+            address(this),
+            amount
+        );
+
+        emit StakeFlip(amount, getCurrentEpoch(), _msgSender());
+    }
+
+    function takeFlipReward(address user) public {
+        require(flipStakes[user].cycleEarned > 0, "Nothing to withdraw");
+
+        FlipStake storage flipStake = flipStakes[user];
+
+        cycleToken.transfer(user, flipStake.cycleEarned);
+        flipStake.cycleEarned = 0;
+    }
+
+    function unstakeFlip() external {
+        require(flipStakes[_msgSender()].flipStaked > 0, "Nothing to unstake");
+
+        takeFlipReward(_msgSender());
+        IERC20(CYCLEBNBAddress).transfer(
+            _msgSender(),
+            flipStakes[_msgSender()].flipStaked
+        );
+
+        totalFlipStaked = totalFlipStaked.sub(
+            flipStakes[_msgSender()].flipStaked
+        );
+
+        emit UnstakeFlip(
+            flipStakes[_msgSender()].flipStaked,
+            getCurrentEpoch(),
+            _msgSender()
+        );
+
+        flipStakes[_msgSender()].flipStaked = 0;
+
+        deleteFromArrayByValue(_msgSender(), flipStakers);
+    }
+
+    // Team can withdraw its share if wants
+    function takeTeamShare() public {
+        if (teamShare > 0) {
+            teamAddress.transfer(teamShare);
+            teamShare = 0;
+        }
+    }
+
+    // =========== Distribute function ==============
+
+    function distributeToFlipStakersAndBurn(uint256 cycleAmount) private {
+        uint256 cycleRewardsForFlipStakers =
+            cycleAmount.mul(rewardForFlipStakersPercent).div(percentMax);
+
+        for (uint256 i = 0; i < flipStakers.length; i++) {
+            FlipStake storage flipStake = flipStakes[flipStakers[i]];
+            flipStake.cycleEarned = flipStake.cycleEarned.add(
+                cycleRewardsForFlipStakers.mul(flipStake.flipStaked).div(
+                    totalFlipStaked
+                )
+            );
+        }
+
+        uint256 burnCycleAmount = cycleAmount;
+        if (flipStakers.length > 0) {
+            burnCycleAmount = burnCycleAmount.sub(cycleRewardsForFlipStakers);
+        }
+
+        cycleToken.burn(burnCycleAmount);
+    }
+
+    // =========== View functions =============
 
     function getCycleAddress() external view returns (address) {
-        return address(_CYCLE);
+        return address(cycleToken);
     }
 
-    function getTeamInfo() external onlyOwner view returns (uint256, address) {
-        return (_teamBNBShare, _teamAddress);
+    function getAuctionLobbyParticipateEpoches(address user)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        return auctionLobbyParticipates[user].epoches;
     }
 
-    function getLastLpUnlockTime(uint256 stakeTime, address user) external view returns (uint256) {
-        return _LPStakes[stakeTime][user].lastUnlockTime;
+    function getAuctionLobbyParticipateBNBParticipated(
+        address user,
+        uint256 epoch
+    ) external view returns (uint256) {
+        return auctionLobbyParticipates[user].BNBParticipated[epoch];
     }
 
-    function getAccumulativeCycle() external view returns (uint256) {
-        return _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange];
-    }
-
-    function getAccumulativeLP() external view returns (uint256) {
-        return _accumulativeStakedLP[_lastAccumulativeLPAmountChange];
-    }
-
-    function getMintTimesLength() external view returns (uint256) {
-        return _mintTimes.length;
-    }
-
-    function getParticipatedBNBAmount(uint256 mintTime, address user) external view returns (uint256) {
-        return _dailyParticipatedBNB[mintTime][user];
-    }
-
-    function getStakedCycle(uint256 stakeTime, address user) external view returns (uint256) {
-        return _dailyStakedCYCLE[stakeTime][user];
-    }
-
-    function getStakedLP(uint256 stakeTime, address user) external view returns (uint256) {
-        return _LPStakes[stakeTime][user].amount;
-    }
-
-    function getTotalParticipateAmount(address user) external view returns (uint256) {
-        uint256 totalBNB;
-        for (uint256 i = 0; i < _mintTimes.length; i++) {
-            totalBNB = totalBNB.add(_dailyParticipatedBNB[_mintTimes[i]][user]);
-        }
-        return totalBNB;
-    }
-
-    function canTakeShare(uint256 mintTime, address user) external view returns (uint256) {
-        if (_dailyTotalParticipatedBNB[mintTime] > 0) {
-            return _dailyParticipatedBNB[mintTime][user].mul(DAILY_MINT_CAP).div(_dailyTotalParticipatedBNB[mintTime]);
-        }
-        return 0;
-    }
-
-    function canUnstake(uint256 stakeTime, address user) external view returns (uint256) {
-        if (_dailyStakedCYCLE[stakeTime][user] > 0 && stakeTime.add(SECONDS_IN_DAY) < block.timestamp) {
-            return _calculateCycleStakeReward(stakeTime, user);
-        }
-        return 0;
-    }
-
-    function canUnstakeLP(uint256 stakeTime, address user) external view returns (uint256) {
-        if (_LPStakes[stakeTime][user].amount > 0) {
-            uint256 lpStakeReward;
-            (lpStakeReward,) = _calculateLPStakeReward(stakeTime, user);
-            return lpStakeReward;
-        }
-        return 0;
-    }
-
-    function getLastMintTime() public view returns (uint256) {
-        return _mintTimes[_mintTimes.length - 1];
-    }
-
-    function participate() external payable {
-        require(msg.value > 0, "Insufficient participation");
-        require(block.timestamp >= _auctionStartTime, "Auction is not started");
-        uint256 lastMintTime = getLastMintTime();
-        if (lastMintTime.add(SECONDS_IN_DAY) <= block.timestamp) {
-            uint256 newLastMintTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
-            _startNextRound(newLastMintTime);
-            lastMintTime = getLastMintTime();
-            _takeTeamBNBShare();
-        }
-        if (_mintTimes.length == 2) {
-            require(_dailyTotalParticipatedBNB[_mintTimes[1]].add(msg.value) <= FIRST_DAY_HARD_CAP, "First day hard cap reached");
-            require(_dailyParticipatedBNB[_mintTimes[1]][_msgSender()].add(msg.value) <= FIRST_DAY_WALLET_CAP, "First day wallet cap reached");
-        } 
-        _dailyTotalParticipatedBNB[lastMintTime] = _dailyTotalParticipatedBNB[lastMintTime].add(msg.value);
-        _dailyParticipatedBNB[lastMintTime][_msgSender()] = _dailyParticipatedBNB[lastMintTime][_msgSender()].add(msg.value);
-        _teamBNBShare = _teamBNBShare.add(msg.value.div(20));
-        if (_userParticipateTimes[_msgSender()].length > 0) {
-            if (_userParticipateTimes[_msgSender()][_userParticipateTimes[_msgSender()].length - 1] != lastMintTime) {
-                _userParticipateTimes[_msgSender()].push(lastMintTime);
-            }
+    function getAuctionLobbyParticipateCycleEarned(address user, uint256 epoch)
+        external
+        view
+        returns (uint256)
+    {
+        if (epoch < getLastEpoch() || getLastEpoch() == getCurrentEpoch()) {
+            return auctionLobbyParticipates[user].cycleEarned[epoch];
         } else {
-            _userParticipateTimes[_msgSender()].push(lastMintTime);
-        }
-        emit Participate(msg.value, lastMintTime, _msgSender());
-    }
-
-    function takeShare(uint256 mintTime, address user) external {
-        require(_dailyParticipatedBNB[mintTime][user] > 0, "Nothing to unlock");
-        require(mintTime.add(SECONDS_IN_DAY) < block.timestamp, "At least 1 day must pass");
-        uint256 participatedAmount = _dailyParticipatedBNB[mintTime][user];
-        delete _dailyParticipatedBNB[mintTime][user];
-        uint256 cycleSharePayout = DAILY_MINT_CAP.div(_dailyTotalParticipatedBNB[mintTime]);
-        for (uint256 i = 0; i < _userParticipateTimes[user].length; i++) {
-            if (_userParticipateTimes[user][i] == mintTime) {
-                _userParticipateTimes[user][i] = _userParticipateTimes[user][_userParticipateTimes[user].length - 1];
-                _userParticipateTimes[user].pop();
-            }
-        }
-        _CYCLE.transfer(user, participatedAmount.mul(cycleSharePayout));
-        emit TakeShare(participatedAmount.mul(cycleSharePayout), mintTime, user);
-    }
-
-    function stake(uint256 amount) external {
-        require(amount > 0, "Invalid stake amount");
-        uint256 stakeTime = _getRightStakeTime();
-        // uint256 lastStakeTime = getLastStakeTime();
-        if (stakeTime > _lastAccumulativeCycleAmountChange) {
-            _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange];
-        }
-        _accumulativeStakedCYCLE[stakeTime] = _accumulativeStakedCYCLE[stakeTime].add(amount);
-        _dailyStakedCYCLE[stakeTime][_msgSender()] = _dailyStakedCYCLE[stakeTime][_msgSender()].add(amount);
-        _lastAccumulativeCycleAmountChange = stakeTime;
-        uint256 fivePercentOfStake = amount.div(20);
-        _CYCLE.transferFrom(_msgSender(), address(this), amount);
-        _CYCLE.burn(amount.sub(fivePercentOfStake));
-        if (_userStakeTimes[_msgSender()].length > 0) {
-            if (_userStakeTimes[_msgSender()][_userStakeTimes[_msgSender()].length - 1] != stakeTime) {
-                _userStakeTimes[_msgSender()].push(stakeTime);
-            }
-        } else {
-            _userStakeTimes[_msgSender()].push(stakeTime);
-        }
-        emit Stake(amount, stakeTime, _msgSender());
-    }
-
-    function unstake(uint256 stakeTime, address payable user) external {
-        require(_dailyStakedCYCLE[stakeTime][user] > 0, "Nothing to unstake");
-        require(stakeTime.add(SECONDS_IN_DAY) < block.timestamp, 'At least 1 day must pass');
-        uint256 unstakeRewardAmount = _calculateCycleStakeReward(stakeTime, user);
-        uint256 unstakeTime = _getRightStakeTime();
-        _accumulativeStakedCYCLE[unstakeTime] = _accumulativeStakedCYCLE[_lastAccumulativeCycleAmountChange].sub(_dailyStakedCYCLE[stakeTime][user]);
-        _lastAccumulativeCycleAmountChange = unstakeTime;
-        delete _dailyStakedCYCLE[stakeTime][user];
-        user.transfer(unstakeRewardAmount);
-        for (uint256 i = 0; i < _userStakeTimes[user].length; i++) {
-            if (_userStakeTimes[user][i] == stakeTime) {
-                _userStakeTimes[user][i] = _userStakeTimes[user][_userStakeTimes[user].length - 1];
-                _userStakeTimes[user].pop();
-                break;
-            }
-        }
-        emit Unstake(unstakeRewardAmount, stakeTime, user);
-    }
-
-    function stakeLP(uint256 amount) external {
-        require(amount > 0, "Invalid stake amount");
-        uint256 stakeTime = _getRightStakeTime();
-        if (stakeTime > _lastAccumulativeLPAmountChange) {
-            _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange];
-        }
-        _accumulativeStakedLP[stakeTime] = _accumulativeStakedLP[stakeTime].add(amount);
-        LPStake storage staker = _LPStakes[stakeTime][_msgSender()];
-        staker.amount = staker.amount.add(amount);
-        staker.lastUnlockTime = stakeTime;
-        _lastAccumulativeLPAmountChange = stakeTime;
-        if (_userLPStakeTimes[_msgSender()].length > 0) {
-            if (_userLPStakeTimes[_msgSender()][_userLPStakeTimes[_msgSender()].length - 1] != stakeTime) {
-                _userLPStakeTimes[_msgSender()].push(stakeTime);
-            }
-        } else {
-            _userLPStakeTimes[_msgSender()].push(stakeTime);
-        }
-        IERC20(CYCLEBNBAddress).transferFrom(_msgSender(), address(this), amount);
-        emit StakeLP(amount, stakeTime, _msgSender());
-    }
-
-    function takeLPReward(uint256 stakeTime, address user) public returns (uint256) {
-        require(_LPStakes[stakeTime][user].amount > 0, "Nothing to unlock");
-        uint256 lpStakeReward;
-        uint256 lastStakeTime;
-        (lpStakeReward, lastStakeTime) = _calculateLPStakeReward(stakeTime, user);
-        _LPStakes[stakeTime][user].lastUnlockTime = lastStakeTime;
-        _CYCLE.transfer(user, lpStakeReward);
-        return lastStakeTime;
-    }
-
-    function unstakeLP(uint256 stakeTime, address user) external {
-        uint256 lastStakeTime = takeLPReward(stakeTime, user);
-        if (lastStakeTime.add(SECONDS_IN_DAY * 2) > block.timestamp) {
-            uint256 unstakeTime = _getRightStakeTime();
-            _accumulativeStakedLP[unstakeTime] = _accumulativeStakedLP[_lastAccumulativeLPAmountChange].sub(_LPStakes[stakeTime][user].amount);
-            _lastAccumulativeLPAmountChange = unstakeTime;
-            IERC20(CYCLEBNBAddress).transfer(user, _LPStakes[stakeTime][user].amount);
-            delete _LPStakes[stakeTime][user];
+            return calculateNewBNBEarned(user);
         }
     }
 
-    function _getRightStakeTime() private view returns(uint256) {
-        uint256 lastMintTime = getLastMintTime();
-        if (lastMintTime.add(SECONDS_IN_DAY) <= block.timestamp) {
-            uint256 newStakeTime = lastMintTime.add(((block.timestamp.sub(lastMintTime)).div(SECONDS_IN_DAY)).mul(SECONDS_IN_DAY));
-            return newStakeTime;
-        }
-        return lastMintTime;
+    function getAuctionLobbyParticipateAvailableCycle(address user)
+        external
+        view
+        returns (uint256)
+    {
+        return
+            auctionLobbyParticipates[user].availableCycle +
+            calculateNewBNBEarned(user);
     }
 
-    function _calculateCycleStakeReward(uint256 stakeTime, address user) private view returns (uint256) {
-        uint256 cycleStakeReward;
-        uint256 accumulativeDailyStakedCycle = _accumulativeStakedCYCLE[stakeTime];
-        uint256 amountStaked = _dailyStakedCYCLE[stakeTime][user];
-        for (uint256 i = stakeTime; i <= block.timestamp && i < stakeTime.add(SECONDS_IN_DAY * 100); i += SECONDS_IN_DAY) {
-            if (_dailyTotalParticipatedBNB[i] > 0) {
-                accumulativeDailyStakedCycle = _accumulativeStakedCYCLE[i] == 0 ? accumulativeDailyStakedCycle : _accumulativeStakedCYCLE[i];
-                cycleStakeReward = cycleStakeReward.add(
-                    _dailyTotalParticipatedBNB[i]
-                        .mul(amountStaked)
-                        .div(accumulativeDailyStakedCycle)
-                );
-            }
-        }
-        return cycleStakeReward.mul(95).div(100);
+    function getCycleStakeLength(address user) external view returns (uint256) {
+        return cycleStakes[user].length;
     }
 
-    function _calculateLPStakeReward(uint256 stakeTime, address user) private view returns (uint256, uint256) {
-        uint256 lpStakeReward;
-        uint256 accumulativeDailyStakedLP = _accumulativeStakedLP[stakeTime];
-        uint256 amountStaked = _LPStakes[stakeTime][user].amount;
-        uint256 lastUnlockTime = _LPStakes[stakeTime][user].lastUnlockTime;
-        for (;lastUnlockTime <= block.timestamp ;) {
-            accumulativeDailyStakedLP = _accumulativeStakedLP[lastUnlockTime] == 0 ? accumulativeDailyStakedLP : _accumulativeStakedLP[lastUnlockTime];
-            if (_dailyTotalParticipatedBNB[lastUnlockTime] > 0) {
-                lpStakeReward = lpStakeReward.add(
+    function getCycleStake(address user, uint256 index)
+        external
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256
+        )
+    {
+        return (
+            cycleStakes[user][index].epoch,
+            cycleStakes[user][index].cycleStaked,
+            cycleStakes[user][index].BNBEarned +
+                calculateNewCycleEarned(user, index),
+            cycleStakes[user][index].active
+        );
+    }
+
+    function getFlipStake(address user)
+        external
+        view
+        returns (uint256, uint256)
+    {
+        return (flipStakes[user].flipStaked, flipStakes[user].cycleEarned);
+    }
+
+    function getDailyTotalBNB(uint256 epoch) external view returns (uint256) {
+        return dailyTotalBNB[epoch];
+    }
+
+    // =========== Calculate new rewards =============
+
+    function calculateNewBNBEarned(address user)
+        private
+        view
+        returns (uint256)
+    {
+        uint256 lastEpoch = getLastEpoch();
+
+        if (lastEpoch < getCurrentEpoch()) {
+            if (dailyTotalBNB[lastEpoch] > 0) {
+                return
                     DAILY_MINT_CAP
-                        .div(20)
-                        .mul(amountStaked)
-                        .div(accumulativeDailyStakedLP)
-                );
+                        .mul(
+                        auctionLobbyParticipates[user].BNBParticipated[
+                            lastEpoch
+                        ]
+                    )
+                        .div(dailyTotalBNB[lastEpoch]);
             }
-            if (gasleft() < 100000) {
-                return(lpStakeReward, lastUnlockTime.sub(SECONDS_IN_DAY));
-            }
-            lastUnlockTime = lastUnlockTime.add(SECONDS_IN_DAY);
-        }
-        return (lpStakeReward, lastUnlockTime.sub(SECONDS_IN_DAY));
-    }
-
-    function _takeTeamBNBShare() private {
-        uint256 teamBNBShare = _teamBNBShare;
-        _teamBNBShare = 0;
-
-        if (!_isLiquidityAdded && _mintTimes[1].add(SECONDS_IN_DAY) <= block.timestamp) {
-            // mint tokens for first day
-            _CYCLE.mint(50_000 * 10 ** 18);
-            // (5% + 95%) / 2
-            teamBNBShare = teamBNBShare.add(_dailyTotalParticipatedBNB[_mintTimes[1]].mul(95).div(100)).div(2);
-
-            IUniswapV2Pair CYCLEBNB = IUniswapV2Pair(CYCLEBNBAddress);
-            IWETH BNB = IWETH(BNBAddress);
-            BNB.deposit{ value : teamBNBShare }();
-
-            uint256 lpMinted = CYCLEBNB.balanceOf(_teamAddress);
-
-            BNB.transfer(CYCLEBNBAddress, teamBNBShare);
-            _CYCLE.transfer(CYCLEBNBAddress, 50_000 * 10 ** 18);
-            CYCLEBNB.mint(_teamAddress);
-
-            lpMinted = CYCLEBNB.balanceOf(_teamAddress).sub(lpMinted);
-            require(lpMinted > 0, "liquidity add failed");
-
-            _isLiquidityAdded = true;
         }
 
-        _teamAddress.transfer(teamBNBShare);
+        return 0;
     }
 
-    function _setLastMintTime(uint256 mintTime) private {
-        _mintTimes.push(mintTime);
+    function calculateNewCycleEarned(address user, uint256 j)
+        private
+        view
+        returns (uint256)
+    {
+        uint256 lastEpoch = getLastEpoch();
+
+        if (lastEpoch < getCurrentEpoch()) {
+            if (dailyTotalBNB[lastEpoch] > 0) {
+                return
+                    dailyTotalBNB[lastEpoch]
+                        .mul(percentMax - teamSharePercent)
+                        .div(percentMax)
+                        .mul(cycleStakes[user][j].cycleStaked)
+                        .div(totalCycleStaked);
+            }
+        }
+
+        return 0;
     }
 
-    function _startNextRound(uint256 startTime) private {
-        _setLastMintTime(startTime);
-        _CYCLE.mint(DAILY_MINT_CAP);
+    // =========== Array Utilites ============
+
+    function findIndexFromArray(address value, address[] memory array)
+        private
+        pure
+        returns (uint256)
+    {
+        uint256 i = 0;
+        for (; i < array.length; i++) {
+            if (array[i] == value) {
+                return i;
+            }
+        }
+
+        return i;
+    }
+
+    function deleteFromArrayByValue(address value, address[] storage array)
+        private
+    {
+        uint256 i = findIndexFromArray(value, array);
+
+        while (i < array.length - 1) {
+            array[i] = array[i + 1];
+            i++;
+        }
+
+        array.pop();
     }
 }

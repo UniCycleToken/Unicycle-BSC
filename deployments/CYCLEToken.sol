@@ -1,6 +1,6 @@
 // File: @openzeppelin/contracts/GSN/Context.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -27,7 +27,7 @@ abstract contract Context {
 
 // File: @openzeppelin/contracts/access/Ownable.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -97,7 +97,7 @@ contract Ownable is Context {
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -177,7 +177,7 @@ interface IERC20 {
 
 // File: @openzeppelin/contracts/math/SafeMath.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -339,7 +339,7 @@ library SafeMath {
 
 // File: @openzeppelin/contracts/utils/Address.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.2;
 
@@ -483,7 +483,7 @@ library Address {
 
 // File: @openzeppelin/contracts/token/ERC20/ERC20.sol
 
-
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
@@ -793,25 +793,31 @@ contract ERC20 is Context, IERC20 {
 // File: contracts/Interfaces.sol
 
 /* solium-disable */
-pragma solidity >= 0.6.0 < 0.7.0;
+pragma solidity >=0.6.0 <0.7.0;
 
- /* solium-disable-next-line */
+
+/* solium-disable-next-line */
 interface ICycleToken is IERC20 {
     function mint(uint256 amount) external;
+
     function burn(uint256 amount) external;
-    function isBlacklisted(address account) view external returns (bool);
+
+    function isBlacklisted(address account) external view returns (bool);
+
     function setAuction(address account) external;
-    function setCYCLEWETHAddress(address CYCLEWETH) external;
+
+    function setCYCLEBNBAddress(address CYCLEBNB) external;
 }
 
 interface IUniswapV2Router02 {
     function factory() external view returns (address);
+
     function WETH() external view returns (address);
 }
 
 // File: contracts/CYCLEToken.sol
 
-pragma solidity >= 0.6.0 < 0.7.0;
+pragma solidity >=0.6.0 <0.7.0;
 
 
 
@@ -821,8 +827,8 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
     using SafeMath for uint256;
 
     address public auctionAddress;
-    address public CYCLEWETHAddress;
-    uint256 public CYCLEWETHLastTotalSupply;
+    address public CYCLEBNBAddress;
+    uint256 public CYCLEBNBLastTotalSupply;
 
     mapping(address => bool) private _blacklistedAddresses;
 
@@ -831,8 +837,8 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _;
     }
 
-    modifier onlyIfCYCLEWETHSet() {
-        require(CYCLEWETHAddress != address(0), "CYCLEWETHAddress is not set");
+    modifier onlyIfCYCLEBNBSet() {
+        require(CYCLEBNBAddress != address(0), "CYCLEBNBAddress is not set");
         _;
     }
 
@@ -841,9 +847,16 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _;
     }
 
-    constructor () public ERC20("UniCycle", "CYCLE") {}
+    constructor() public ERC20("UniCycle", "CYCLE") {
+        _mint(_msgSender(), 100_000 * 10**18);
+    }
 
-    function isBlacklisted(address account) external view override returns (bool) {
+    function isBlacklisted(address account)
+        external
+        view
+        override
+        returns (bool)
+    {
         return _blacklistedAddresses[account];
     }
 
@@ -853,14 +866,19 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         auctionAddress = auction;
     }
 
-    function setCYCLEWETHAddress(address CYCLEWETH) external override onlyOwner {
-        require(CYCLEWETH != address(0), "Zero address");
-        require(CYCLEWETHAddress == address(0), "CYCLEWETH already set");
-        CYCLEWETHAddress = CYCLEWETH;
-        CYCLEWETHLastTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+    function setCYCLEBNBAddress(address CYCLEBNB) external override onlyOwner {
+        require(CYCLEBNB != address(0), "Zero address");
+        require(CYCLEBNBAddress == address(0), "CYCLEBNB already set");
+        CYCLEBNBAddress = CYCLEBNB;
+        CYCLEBNBLastTotalSupply = IERC20(CYCLEBNBAddress).totalSupply();
     }
 
-    function mint(uint256 amount) external override onlyAuction onlyIfCYCLEWETHSet {
+    function mint(uint256 amount)
+        external
+        override
+        onlyAuction
+        onlyIfCYCLEBNBSet
+    {
         _mint(auctionAddress, amount);
     }
 
@@ -868,7 +886,11 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
         _burn(auctionAddress, amount);
     }
 
-    function addToBlacklist(address account) external onlyOwner onlyIfNotBlacklisted(account) {
+    function addToBlacklist(address account)
+        external
+        onlyOwner
+        onlyIfNotBlacklisted(account)
+    {
         _blacklistedAddresses[account] = true;
     }
 
@@ -878,23 +900,38 @@ contract CYCLEToken is ICycleToken, ERC20, Ownable {
     }
 
     function sync() public {
-        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
-        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
+        uint256 CYCLEBNBCurrentTotalSupply =
+            IERC20(CYCLEBNBAddress).totalSupply();
+        CYCLEBNBLastTotalSupply = CYCLEBNBCurrentTotalSupply;
     }
 
-    function _transfer(address sender, address recipient, uint256 amount) internal override {
-        uint256 CYCLEWETHCurrentTotalSupply = IERC20(CYCLEWETHAddress).totalSupply();
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal override {
+        if (CYCLEBNBAddress != address(0)) {
+            uint256 CYCLEBNBCurrentTotalSupply =
+                IERC20(CYCLEBNBAddress).totalSupply();
 
-        if (sender == CYCLEWETHAddress) {
-            require(CYCLEWETHLastTotalSupply <= CYCLEWETHCurrentTotalSupply, "Liquidity withdrawals forbidden");
+            if (sender == CYCLEBNBAddress) {
+                require(
+                    CYCLEBNBLastTotalSupply <= CYCLEBNBCurrentTotalSupply,
+                    "Liquidity withdrawals forbidden"
+                );
+            }
+
+            CYCLEBNBLastTotalSupply = CYCLEBNBCurrentTotalSupply;
         }
 
         ERC20._transfer(sender, recipient, amount);
-
-        CYCLEWETHLastTotalSupply = CYCLEWETHCurrentTotalSupply;
     }
 
-    function _beforeTokenTransfer(address from, address, uint256) internal override onlyIfNotBlacklisted(from) {
+    function _beforeTokenTransfer(
+        address from,
+        address,
+        uint256
+    ) internal override onlyIfNotBlacklisted(from) {
         // solium-disable-previous-line no-empty-blocks
     }
 }
