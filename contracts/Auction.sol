@@ -1,7 +1,7 @@
 pragma solidity >=0.6.0 <0.7.0;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Interfaces.sol";
 import "./Epoch.sol";
 
-contract Auction is Context, Ownable, Epoch {
+contract Auction is Context, Epoch, ReentrancyGuard {
     using SafeMath for uint256;
 
     struct AuctionLobbyParticipate {
@@ -165,6 +165,7 @@ contract Auction is Context, Ownable, Epoch {
     function participate()
         external
         payable
+        nonReentrant
         checkValue(msg.value)
         checkStartTime
         distributeRewards
@@ -207,7 +208,7 @@ contract Auction is Context, Ownable, Epoch {
         emit Participate(msg.value, currentEpoch, _msgSender());
     }
 
-    function takeAuctionLobbyShare() external distributeRewards {
+    function takeAuctionLobbyShare() external nonReentrant distributeRewards {
         require(
             auctionLobbyParticipates[_msgSender()].availableCycle > 0,
             "Nothing to withdraw"
@@ -225,6 +226,7 @@ contract Auction is Context, Ownable, Epoch {
 
     function stake(uint256 amount)
         external
+        nonReentrant
         checkValue(amount)
         checkStartTime
         distributeRewards
@@ -253,7 +255,7 @@ contract Auction is Context, Ownable, Epoch {
         emit Stake(amount, getCurrentEpoch(), _msgSender());
     }
 
-    function unstake(uint256 index) external distributeRewards {
+    function unstake(uint256 index) external nonReentrant distributeRewards {
         require(
             cycleStakes[_msgSender()][index].BNBEarned > 0,
             "Nothing to unstake"
@@ -290,6 +292,7 @@ contract Auction is Context, Ownable, Epoch {
 
     function stakeFlip(uint256 amount)
         external
+        nonReentrant
         checkValue(amount)
         checkStartTime
     {
@@ -320,7 +323,7 @@ contract Auction is Context, Ownable, Epoch {
         flipStake.cycleEarned = 0;
     }
 
-    function unstakeFlip() external {
+    function unstakeFlip() external nonReentrant {
         require(flipStakes[_msgSender()].flipStaked > 0, "Nothing to unstake");
 
         takeFlipReward(_msgSender());

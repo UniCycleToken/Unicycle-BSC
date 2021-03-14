@@ -740,7 +740,12 @@ contract Auction is Context, Ownable, Epoch {
             .BNBParticipated[currentEpoch]
             .add(msg.value);
 
-        auctionParticipate.epoches.push(currentEpoch);
+        if (
+            auctionParticipate.epoches[auctionParticipate.epoches.length - 1] <
+            currentEpoch
+        ) {
+            auctionParticipate.epoches.push(currentEpoch);
+        }
 
         dailyTotalBNB[currentEpoch] = dailyTotalBNB[currentEpoch].add(
             msg.value

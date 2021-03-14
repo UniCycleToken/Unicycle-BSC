@@ -9,8 +9,6 @@ interface ICycleToken is IERC20 {
 
     function burn(uint256 amount) external;
 
-    function isBlacklisted(address account) external view returns (bool);
-
     function setAuction(address account) external;
 
     function setCYCLEBNBAddress(address CYCLEBNB) external;
