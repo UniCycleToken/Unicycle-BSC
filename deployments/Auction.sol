@@ -160,100 +160,68 @@ library SafeMath {
     }
 }
 
-// File: @openzeppelin/contracts/GSN/Context.sol
-
-// SPDX-License-Identifier: MIT
-
-pragma solidity ^0.6.0;
-
-/*
- * @dev Provides information about the current execution context, including the
- * sender of the transaction and its data. While these are generally available
- * via msg.sender and msg.data, they should not be accessed in such a direct
- * manner, since when dealing with GSN meta-transactions the account sending and
- * paying for execution may not be the actual sender (as far as an application
- * is concerned).
- *
- * This contract is only required for intermediate, library-like contracts.
- */
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address payable) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual returns (bytes memory) {
-        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
-        return msg.data;
-    }
-}
-
-// File: @openzeppelin/contracts/access/Ownable.sol
+// File: @openzeppelin/contracts/utils/ReentrancyGuard.sol
 
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.6.0;
 
 /**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
+ * @dev Contract module that helps prevent reentrant calls to a function.
  *
- * By default, the owner account will be the one that deploys the contract. This
- * can later be changed with {transferOwnership}.
+ * Inheriting from `ReentrancyGuard` will make the {nonReentrant} modifier
+ * available, which can be applied to functions to make sure there are no nested
+ * (reentrant) calls to them.
  *
- * This module is used through inheritance. It will make available the modifier
- * `onlyOwner`, which can be applied to your functions to restrict their use to
- * the owner.
+ * Note that because there is a single `nonReentrant` guard, functions marked as
+ * `nonReentrant` may not call one another. This can be worked around by making
+ * those functions `private`, and then adding `external` `nonReentrant` entry
+ * points to them.
+ *
+ * TIP: If you would like to learn more about reentrancy and alternative ways
+ * to protect against it, check out our blog post
+ * https://blog.openzeppelin.com/reentrancy-after-istanbul/[Reentrancy After Istanbul].
  */
-contract Ownable is Context {
-    address private _owner;
+contract ReentrancyGuard {
+    // Booleans are more expensive than uint256 or any type that takes up a full
+    // word because each write operation emits an extra SLOAD to first read the
+    // slot's contents, replace the bits taken up by the boolean, and then write
+    // back. This is the compiler's defense against contract upgrades and
+    // pointer aliasing, and it cannot be disabled.
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    // The values being non-zero value makes deployment a bit more expensive,
+    // but in exchange the refund on every call to nonReentrant will be lower in
+    // amount. Since refunds are capped to a percentage of the total
+    // transaction's gas, it is best to keep them low in cases like this one, to
+    // increase the likelihood of the full refund coming into effect.
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
 
-    /**
-     * @dev Initializes the contract setting the deployer as the initial owner.
-     */
+    uint256 private _status;
+
     constructor () internal {
-        address msgSender = _msgSender();
-        _owner = msgSender;
-        emit OwnershipTransferred(address(0), msgSender);
+        _status = _NOT_ENTERED;
     }
 
     /**
-     * @dev Returns the address of the current owner.
+     * @dev Prevents a contract from calling itself, directly or indirectly.
+     * Calling a `nonReentrant` function from another `nonReentrant`
+     * function is not supported. It is possible to prevent this from happening
+     * by making the `nonReentrant` function external, and make it call a
+     * `private` function that does the actual work.
      */
-    function owner() public view returns (address) {
-        return _owner;
-    }
+    modifier nonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
 
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+
         _;
-    }
 
-    /**
-     * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
-     *
-     * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
-     */
-    function renounceOwnership() public virtual onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
-     */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
+        // By storing the original value once again, a refund is triggered (see
+        // https://eips.ethereum.org/EIPS/eip-2200)
+        _status = _NOT_ENTERED;
     }
 }
 
@@ -434,11 +402,7 @@ interface ICycleToken is IERC20 {
 
     function burn(uint256 amount) external;
 
-    function isBlacklisted(address account) external view returns (bool);
-
     function setAuction(address account) external;
-
-    function setCYCLEBNBAddress(address CYCLEBNB) external;
 }
 
 interface IUniswapV2Router02 {
@@ -481,6 +445,103 @@ library Math {
     }
 }
 
+// File: @openzeppelin/contracts/GSN/Context.sol
+
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.6.0;
+
+/*
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with GSN meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address payable) {
+        return msg.sender;
+    }
+
+    function _msgData() internal view virtual returns (bytes memory) {
+        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
+        return msg.data;
+    }
+}
+
+// File: @openzeppelin/contracts/access/Ownable.sol
+
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.6.0;
+
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ *
+ * This module is used through inheritance. It will make available the modifier
+ * `onlyOwner`, which can be applied to your functions to restrict their use to
+ * the owner.
+ */
+contract Ownable is Context {
+    address private _owner;
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    /**
+     * @dev Initializes the contract setting the deployer as the initial owner.
+     */
+    constructor () internal {
+        address msgSender = _msgSender();
+        _owner = msgSender;
+        emit OwnershipTransferred(address(0), msgSender);
+    }
+
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    /**
+     * @dev Leaves the contract without owner. It will not be possible to call
+     * `onlyOwner` functions anymore. Can only be called by the current owner.
+     *
+     * NOTE: Renouncing ownership will leave the contract without an owner,
+     * thereby removing any functionality that is only available to the owner.
+     */
+    function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+
+    /**
+     * @dev Transfers ownership of the contract to a new account (`newOwner`).
+     * Can only be called by the current owner.
+     */
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        emit OwnershipTransferred(_owner, newOwner);
+        _owner = newOwner;
+    }
+}
+
 // File: contracts/Epoch.sol
 
 pragma solidity ^0.6.0;
@@ -497,23 +558,26 @@ contract Epoch is Ownable {
 
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(
-        uint256 _period,
-        uint256 _startTime,
-        uint256 _startEpoch
-    ) public {
-        require(_startTime > block.timestamp, "Epoch: invalid start time");
+    constructor(uint256 _period) public {
         period = _period;
-        startTime = _startTime;
-        lastExecutedAt = startTime.add(_startEpoch.mul(period));
     }
 
     /* ========== Modifier ========== */
 
     modifier checkStartTime {
+        require(startTime != 0, "Epoch: not started yet");
         require(block.timestamp >= startTime, "Epoch: not started yet");
 
         _;
+    }
+
+    function setStartTime(uint256 _startTime) external onlyOwner {
+        require(
+            _startTime > block.timestamp,
+            "Epoch: invalid start time, should be later than now"
+        );
+        startTime = _startTime;
+        lastExecutedAt = startTime;
     }
 
     /* ========== VIEW FUNCTIONS ========== */
@@ -561,7 +625,7 @@ pragma solidity >=0.6.0 <0.7.0;
 
 
 
-contract Auction is Context, Ownable, Epoch {
+contract Auction is Context, Epoch, ReentrancyGuard {
     using SafeMath for uint256;
 
     struct AuctionLobbyParticipate {
@@ -624,10 +688,9 @@ contract Auction is Context, Ownable, Epoch {
     constructor(
         address cycleTokenAddress,
         address uniswapV2Router02Address,
-        uint256 auctionStartTime,
         address payable _teamAddress
-    ) public Epoch(900, auctionStartTime, 0) {
-        // 15 mins period for test
+    ) public Epoch(900) {
+        // 1 day period
         require(cycleTokenAddress != address(0), "ZERO ADDRESS");
         require(uniswapV2Router02Address != address(0), "ZERO ADDRESS");
         require(_teamAddress != address(0), "ZERO ADDRESS");
@@ -717,6 +780,7 @@ contract Auction is Context, Ownable, Epoch {
     function participate()
         external
         payable
+        nonReentrant
         checkValue(msg.value)
         checkStartTime
         distributeRewards
@@ -741,6 +805,7 @@ contract Auction is Context, Ownable, Epoch {
             .add(msg.value);
 
         if (
+            auctionParticipate.epoches.length == 0 ||
             auctionParticipate.epoches[auctionParticipate.epoches.length - 1] <
             currentEpoch
         ) {
@@ -759,7 +824,7 @@ contract Auction is Context, Ownable, Epoch {
         emit Participate(msg.value, currentEpoch, _msgSender());
     }
 
-    function takeAuctionLobbyShare() external distributeRewards {
+    function takeAuctionLobbyShare() external nonReentrant distributeRewards {
         require(
             auctionLobbyParticipates[_msgSender()].availableCycle > 0,
             "Nothing to withdraw"
@@ -777,6 +842,7 @@ contract Auction is Context, Ownable, Epoch {
 
     function stake(uint256 amount)
         external
+        nonReentrant
         checkValue(amount)
         checkStartTime
         distributeRewards
@@ -805,7 +871,7 @@ contract Auction is Context, Ownable, Epoch {
         emit Stake(amount, getCurrentEpoch(), _msgSender());
     }
 
-    function unstake(uint256 index) external distributeRewards {
+    function unstake(uint256 index) external nonReentrant distributeRewards {
         require(
             cycleStakes[_msgSender()][index].BNBEarned > 0,
             "Nothing to unstake"
@@ -842,6 +908,7 @@ contract Auction is Context, Ownable, Epoch {
 
     function stakeFlip(uint256 amount)
         external
+        nonReentrant
         checkValue(amount)
         checkStartTime
     {
@@ -854,46 +921,24 @@ contract Auction is Context, Ownable, Epoch {
         flipStake.flipStaked = flipStake.flipStaked.add(amount);
         totalFlipStaked = totalFlipStaked.add(amount);
 
+        // Burn staking flips
         IERC20(CYCLEBNBAddress).transferFrom(
             _msgSender(),
             address(this),
             amount
         );
+        IERC20(CYCLEBNBAddress).transfer(address(0), amount);
 
         emit StakeFlip(amount, getCurrentEpoch(), _msgSender());
     }
 
-    function takeFlipReward(address user) public {
+    function takeFlipReward(address user) external {
         require(flipStakes[user].cycleEarned > 0, "Nothing to withdraw");
 
         FlipStake storage flipStake = flipStakes[user];
 
         cycleToken.transfer(user, flipStake.cycleEarned);
         flipStake.cycleEarned = 0;
-    }
-
-    function unstakeFlip() external {
-        require(flipStakes[_msgSender()].flipStaked > 0, "Nothing to unstake");
-
-        takeFlipReward(_msgSender());
-        IERC20(CYCLEBNBAddress).transfer(
-            _msgSender(),
-            flipStakes[_msgSender()].flipStaked
-        );
-
-        totalFlipStaked = totalFlipStaked.sub(
-            flipStakes[_msgSender()].flipStaked
-        );
-
-        emit UnstakeFlip(
-            flipStakes[_msgSender()].flipStaked,
-            getCurrentEpoch(),
-            _msgSender()
-        );
-
-        flipStakes[_msgSender()].flipStaked = 0;
-
-        deleteFromArrayByValue(_msgSender(), flipStakers);
     }
 
     // Team can withdraw its share if wants
@@ -1021,6 +1066,22 @@ contract Auction is Context, Ownable, Epoch {
         }
 
         return teamShare;
+    }
+
+    function getAuctionLobbyParticipaters()
+        external
+        view
+        returns (address[] memory)
+    {
+        return auctionLobbyParticipaters;
+    }
+
+    function getCycleStakers() external view returns (address[] memory) {
+        return cycleStakers;
+    }
+
+    function getFlipStakers() external view returns (address[] memory) {
+        return flipStakers;
     }
 
     // =========== Calculate new rewards =============

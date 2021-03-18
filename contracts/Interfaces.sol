@@ -10,8 +10,6 @@ interface ICycleToken is IERC20 {
     function burn(uint256 amount) external;
 
     function setAuction(address account) external;
-
-    function setCYCLEBNBAddress(address CYCLEBNB) external;
 }
 
 interface IUniswapV2Router02 {

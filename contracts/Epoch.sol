@@ -13,23 +13,26 @@ contract Epoch is Ownable {
 
     /* ========== CONSTRUCTOR ========== */
 
-    constructor(
-        uint256 _period,
-        uint256 _startTime,
-        uint256 _startEpoch
-    ) public {
-        require(_startTime > block.timestamp, "Epoch: invalid start time");
+    constructor(uint256 _period) public {
         period = _period;
-        startTime = _startTime;
-        lastExecutedAt = startTime.add(_startEpoch.mul(period));
     }
 
     /* ========== Modifier ========== */
 
     modifier checkStartTime {
+        require(startTime != 0, "Epoch: not started yet");
         require(block.timestamp >= startTime, "Epoch: not started yet");
 
         _;
+    }
+
+    function setStartTime(uint256 _startTime) external onlyOwner {
+        require(
+            _startTime > block.timestamp,
+            "Epoch: invalid start time, should be later than now"
+        );
+        startTime = _startTime;
+        lastExecutedAt = startTime;
     }
 
     /* ========== VIEW FUNCTIONS ========== */

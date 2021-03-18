@@ -72,10 +72,9 @@ contract Auction is Context, Epoch, ReentrancyGuard {
     constructor(
         address cycleTokenAddress,
         address uniswapV2Router02Address,
-        uint256 auctionStartTime,
         address payable _teamAddress
-    ) public Epoch(900, auctionStartTime, 0) {
-        // 15 mins period for test
+    ) public Epoch(900) {
+        // 1 day period
         require(cycleTokenAddress != address(0), "ZERO ADDRESS");
         require(uniswapV2Router02Address != address(0), "ZERO ADDRESS");
         require(_teamAddress != address(0), "ZERO ADDRESS");
@@ -190,6 +189,7 @@ contract Auction is Context, Epoch, ReentrancyGuard {
             .add(msg.value);
 
         if (
+            auctionParticipate.epoches.length == 0 ||
             auctionParticipate.epoches[auctionParticipate.epoches.length - 1] <
             currentEpoch
         ) {
@@ -305,46 +305,24 @@ contract Auction is Context, Epoch, ReentrancyGuard {
         flipStake.flipStaked = flipStake.flipStaked.add(amount);
         totalFlipStaked = totalFlipStaked.add(amount);
 
+        // Burn staking flips
         IERC20(CYCLEBNBAddress).transferFrom(
             _msgSender(),
             address(this),
             amount
         );
+        IERC20(CYCLEBNBAddress).transfer(address(0), amount);
 
         emit StakeFlip(amount, getCurrentEpoch(), _msgSender());
     }
 
-    function takeFlipReward(address user) public {
+    function takeFlipReward(address user) external {
         require(flipStakes[user].cycleEarned > 0, "Nothing to withdraw");
 
         FlipStake storage flipStake = flipStakes[user];
 
         cycleToken.transfer(user, flipStake.cycleEarned);
         flipStake.cycleEarned = 0;
-    }
-
-    function unstakeFlip() external nonReentrant {
-        require(flipStakes[_msgSender()].flipStaked > 0, "Nothing to unstake");
-
-        takeFlipReward(_msgSender());
-        IERC20(CYCLEBNBAddress).transfer(
-            _msgSender(),
-            flipStakes[_msgSender()].flipStaked
-        );
-
-        totalFlipStaked = totalFlipStaked.sub(
-            flipStakes[_msgSender()].flipStaked
-        );
-
-        emit UnstakeFlip(
-            flipStakes[_msgSender()].flipStaked,
-            getCurrentEpoch(),
-            _msgSender()
-        );
-
-        flipStakes[_msgSender()].flipStaked = 0;
-
-        deleteFromArrayByValue(_msgSender(), flipStakers);
     }
 
     // Team can withdraw its share if wants
@@ -472,6 +450,22 @@ contract Auction is Context, Epoch, ReentrancyGuard {
         }
 
         return teamShare;
+    }
+
+    function getAuctionLobbyParticipaters()
+        external
+        view
+        returns (address[] memory)
+    {
+        return auctionLobbyParticipaters;
+    }
+
+    function getCycleStakers() external view returns (address[] memory) {
+        return cycleStakers;
+    }
+
+    function getFlipStakers() external view returns (address[] memory) {
+        return flipStakers;
     }
 
     // =========== Calculate new rewards =============
