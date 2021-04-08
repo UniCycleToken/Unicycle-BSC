@@ -14,7 +14,7 @@
     "pretest": "truffle build && cp ./node_modules/@uniswap/v2-periphery/build/WETH9.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-periphery/build/UniswapV2Router02.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Pair.json ./build/contracts/ && cp ./node_modules/@uniswap/v2-core/build/UniswapV2Factory.json ./build/contracts/",
     "test": "truffle test",
     "truffle": "truffle",
-    "flatten": "rm -rf ./deployments/* && mkdir -p ./deployments && truffle-flattener ./contracts/CYCLEToken.sol  >> ./deployments/CYCLEToken.sol && truffle-flattener ./contracts/Auction.sol  >> ./deployments/Auction.sol"
+    "flatten": "rm -rf ./deployments/* && mkdir -p ./deployments && truffle-flattener ./contracts/CYCLEToken.sol  >> ./deployments/CYCLEToken.sol && truffle-flattener ./contracts/Auction.sol  >> ./deployments/Auction.sol && truffle-flattener ./contracts/Lottery.sol  >> ./deployments/Lottery.sol"
   },
   "keywords": [],
   "author": "",
